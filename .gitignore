@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+server/videos/*
+server/thumbnails/*
+server/subtitles/*
+server/avatars/*
+server/hls/*
+!**/.gitkeep
