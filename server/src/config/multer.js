@@ -1,10 +1,10 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { VIDEOS, THUMBNAILS, SUBTITLES, AVATARS, HLS } = require('./paths');
+const { VIDEOS, THUMBNAILS, SUBTITLES, AVATARS, HLS, POSTERS } = require('./paths');
 
 function ensureDirs() {
-  [VIDEOS, THUMBNAILS, SUBTITLES, AVATARS, HLS].forEach((d) => {
+  [VIDEOS, THUMBNAILS, SUBTITLES, AVATARS, HLS, POSTERS].forEach((d) => {
     fs.mkdirSync(d, { recursive: true });
   });
 }
@@ -50,6 +50,11 @@ const avatarStorage = multer.diskStorage({
   filename: (_req, file, cb) => cb(null, uniqueSafeName(file.originalname, AVATARS)),
 });
 
+const posterStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, POSTERS),
+  filename: (_req, file, cb) => cb(null, uniqueSafeName(file.originalname, POSTERS)),
+});
+
 const videoFilter = (_req, file, cb) => {
   const ok = /\.(mp4|mkv|webm)$/i.test(file.originalname);
   cb(ok ? null : new Error('Only MP4, MKV, WebM allowed'), ok);
@@ -72,4 +77,5 @@ module.exports = {
   uploadThumb: multer({ storage: thumbStorage, limits: { fileSize: 20 * 1024 * 1024 }, fileFilter: imageFilter }),
   uploadSub: multer({ storage: subStorage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: subFilter }),
   uploadAvatar: multer({ storage: avatarStorage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: imageFilter }),
+  uploadPoster: multer({ storage: posterStorage, limits: { fileSize: 20 * 1024 * 1024 }, fileFilter: imageFilter }),
 };

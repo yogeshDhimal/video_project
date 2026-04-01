@@ -112,17 +112,16 @@ export default function Home() {
 
         <div className="relative z-10 max-w-2xl">
           <p className="text-teal-700 dark:text-teal-400/95 text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-3">
-            Local library
+            Premium Collection
           </p>
           <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-bold text-slate-900 dark:text-white mb-4 leading-[1.1]">
-            Your shows,{' '}
+            Endless{' '}
             <span className="bg-gradient-to-r from-teal-600 via-teal-500 to-cyan-600 dark:from-teal-300 dark:via-ice-300 dark:to-white bg-clip-text text-transparent">
-              your rules
+              Entertainment
             </span>
           </h1>
           <p className="text-slate-600 dark:text-slate-400 text-base sm:text-lg mb-8 max-w-xl leading-relaxed">
-            Chunked streaming with range requests, fuzzy search, and recommendations — wrapped in a calm charcoal,
-            teal, and ice palette.
+            Experience seamless, high-quality streaming with our intelligent recommendation engine, blazing-fast search, and an intuitive interface designed for the ultimate viewing experience.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link

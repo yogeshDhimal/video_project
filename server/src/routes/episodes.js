@@ -6,10 +6,25 @@ const Series = require('../models/Series');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { authenticate, optionalAuth, requireRole } = require('../middleware/auth');
-const { getEpisodeChain, getNextEpisode } = require('../helpers/content');
+const { getEpisodeChain, getNextEpisode, getPrevEpisode } = require('../helpers/content');
 const { trendingScoreRaw } = require('../algorithms');
 
 const router = express.Router();
+
+router.get('/:id/prev', optionalAuth, async (req, res) => {
+  const prev = await getPrevEpisode(req.params.id);
+  if (!prev) return res.json({ prev: null });
+  if (prev.series?.catalogStatus === 'draft' && req.user?.role !== 'admin') {
+    return res.json({ prev: null });
+  }
+  res.json({
+    prev: {
+      episode: prev.episode,
+      season: prev.season,
+      series: prev.series,
+    },
+  });
+});
 
 router.get('/:id/next', optionalAuth, async (req, res) => {
   const next = await getNextEpisode(req.params.id);

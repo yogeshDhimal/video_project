@@ -54,8 +54,35 @@ export default function AdminSeriesNew() {
     releaseYear: String(new Date().getFullYear()),
     type: 'series',
     posterPath: '',
+    videoFile: '',
+    thumbnailPath: '',
+    subtitleFile: '',
     status: 'ongoing',
   });
+
+  const handleFileUpload = async (e, field, endpoint, formKey) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const body = new FormData();
+    body.append(field, file);
+    setBusy(true);
+    let tid;
+    if (field === 'video') {
+      tid = toast.loading('Uploading video...');
+    }
+    try {
+      const { data } = await api.post(`/uploads/${endpoint}`, body);
+      setForm((f) => ({ ...f, [formKey]: data.fileName }));
+      if (tid) toast.success('Video uploaded', { id: tid });
+      else flash('ok', `Uploaded ${file.name}`);
+    } catch (err) {
+      const m = err.response?.data?.message || 'Upload failed';
+      if (tid) toast.error(m, { id: tid });
+      else flash('err', m);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const flash = (type, text) => {
     setMsg({ type, text });
@@ -90,6 +117,9 @@ export default function AdminSeriesNew() {
           releaseYear: s.releaseYear != null ? String(s.releaseYear) : '',
           type: s.type || 'series',
           posterPath: s.posterPath || '',
+          videoFile: s.videoFile || '',
+          thumbnailPath: s.thumbnailPath || '',
+          subtitleFile: s.subtitleFile || '',
           status: s.status || 'ongoing',
         });
         const wantStep = stepParam === '1' ? 1 : 2;
@@ -116,6 +146,9 @@ export default function AdminSeriesNew() {
       releaseYear: Number.isFinite(year) ? year : undefined,
       type: form.type,
       posterPath: form.posterPath.trim() || undefined,
+      videoFile: form.videoFile.trim() || undefined,
+      thumbnailPath: form.thumbnailPath.trim() || undefined,
+      subtitleFile: form.subtitleFile.trim() || undefined,
       status: form.status,
       catalogStatus,
     };
@@ -203,9 +236,15 @@ export default function AdminSeriesNew() {
         id = data.series._id;
         setSeriesId(id);
       }
-      flash('ok', 'Series published to the catalog. Next: add a season.');
-      toast.success('Series published');
-      setTimeout(() => navigate(`/admin/seasons?series=${id}`), 600);
+      if (form.type === 'movie') {
+        flash('ok', 'Movie published to the catalog.');
+        toast.success('Movie published');
+        setTimeout(() => navigate(`/series/${id}`), 600);
+      } else {
+        flash('ok', 'Series published to the catalog. Next: add a season.');
+        toast.success('Series published');
+        setTimeout(() => navigate(`/admin/seasons?series=${id}`), 600);
+      }
     } catch (err) {
       const m = err.response?.data?.message || err.response?.data?.errors?.[0]?.msg || 'Failed to publish';
       flash('err', m);
@@ -301,14 +340,50 @@ export default function AdminSeriesNew() {
                   <option value="hiatus">Hiatus</option>
                 </select>
               </Field>
-              <Field label="Poster file name *" className="sm:col-span-2">
+              <Field label="Poster image *" className="sm:col-span-2">
                 <input
+                  type="file"
+                  accept="image/*"
                   className={inputClass}
-                  value={form.posterPath}
-                  onChange={(e) => setForm((f) => ({ ...f, posterPath: e.target.value }))}
-                  placeholder="File name from Media uploads"
+                  onChange={(e) => handleFileUpload(e, 'poster', 'poster', 'posterPath')}
+                  disabled={busy}
                 />
+                {form.posterPath && <div className="text-xs text-teal-600 mt-1 dark:text-teal-400">Selected: {form.posterPath}</div>}
               </Field>
+              {form.type === 'movie' && (
+                <>
+                  <Field label="Video file (MP4, MKV)">
+                    <input
+                      type="file"
+                      accept=".mp4,.mkv,.webm"
+                      className={inputClass}
+                      onChange={(e) => handleFileUpload(e, 'video', 'video', 'videoFile')}
+                      disabled={busy}
+                    />
+                    {form.videoFile && <div className="text-xs text-teal-600 mt-1 dark:text-teal-400">Selected: {form.videoFile}</div>}
+                  </Field>
+                  <Field label="Thumbnail image">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className={inputClass}
+                      onChange={(e) => handleFileUpload(e, 'thumbnail', 'thumbnail', 'thumbnailPath')}
+                      disabled={busy}
+                    />
+                    {form.thumbnailPath && <div className="text-xs text-teal-600 mt-1 dark:text-teal-400">Selected: {form.thumbnailPath}</div>}
+                  </Field>
+                  <Field label="Subtitle (.vtt, .srt)" className="sm:col-span-2">
+                    <input
+                      type="file"
+                      accept=".vtt,.srt"
+                      className={inputClass}
+                      onChange={(e) => handleFileUpload(e, 'subtitle', 'subtitle', 'subtitleFile')}
+                      disabled={busy}
+                    />
+                    {form.subtitleFile && <div className="text-xs text-teal-600 mt-1 dark:text-teal-400">Selected: {form.subtitleFile}</div>}
+                  </Field>
+                </>
+              )}
             </div>
             <Field label="Genres * (comma-separated)">
               <input

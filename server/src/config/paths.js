@@ -9,4 +9,5 @@ module.exports = {
   SUBTITLES: path.join(ROOT, 'subtitles'),
   AVATARS: path.join(ROOT, 'avatars'),
   HLS: path.join(ROOT, 'hls'),
+  POSTERS: path.join(ROOT, 'posters'),
 };

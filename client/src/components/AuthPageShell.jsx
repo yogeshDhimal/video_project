@@ -12,7 +12,6 @@ export default function AuthPageShell({ children }) {
           to="/"
           className="font-display font-bold text-lg tracking-tight text-slate-800 dark:text-white flex items-center gap-2.5"
         >
-          <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-teal-500 to-ice-500 shadow-md dark:shadow-glow shrink-0" />
           StreamVault
         </Link>
         <ThemeToggle />

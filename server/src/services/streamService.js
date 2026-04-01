@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { VIDEOS, HLS } = require('../config/paths');
+const { calculateVideoRange } = require('../algorithms/video-streaming');
 
 /**
  * HTTP Range streaming for a single video file (MP4/MKV).
@@ -25,14 +26,12 @@ function sendVideoRange(req, res, absoluteFilePath) {
             : 'video/mp4';
 
       if (range) {
-        const parts = range.replace(/bytes=/, '').split('-');
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-        if (Number.isNaN(start) || start >= fileSize || end < start) {
+        const rangeData = calculateVideoRange(range, fileSize);
+        if (rangeData && rangeData.error) {
           res.status(416).set('Content-Range', `bytes */${fileSize}`).end();
           return resolve();
         }
-        const chunkSize = end - start + 1;
+        const { start, end, chunkSize } = rangeData;
         res.status(206);
         res.set({
           'Content-Range': `bytes ${start}-${end}/${fileSize}`,

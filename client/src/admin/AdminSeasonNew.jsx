@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import api from '../api/client';
 import { Field, Flash, inputClass, Panel } from './adminUi';
 
 export default function AdminSeasonNew() {
+  const navigate = useNavigate();
   const [search] = useSearchParams();
   const preSeries = search.get('series');
 
   const [msg, setMsg] = useState({ type: '', text: '' });
   const [busy, setBusy] = useState(false);
   const [seriesList, setSeriesList] = useState([]);
+  const [createdSeasonId, setCreatedSeasonId] = useState('');
   const [form, setForm] = useState({
     seriesId: preSeries || '',
     number: 1,
@@ -17,7 +20,7 @@ export default function AdminSeasonNew() {
   });
 
   const loadSeries = useCallback(async () => {
-    const { data } = await api.get('/series', { params: { limit: 200, page: 1, includeDrafts: '1' } });
+    const { data } = await api.get('/series', { params: { limit: 200, page: 1, includeDrafts: '1', type: 'series' } });
     setSeriesList(data.items || []);
   }, []);
 
@@ -46,9 +49,12 @@ export default function AdminSeasonNew() {
         number: Number(form.number),
         title: form.title || undefined,
       });
-      flash('ok', `Season ${data.season.number} created. You can add episodes now.`);
+      setCreatedSeasonId(data.season._id);
+      toast.success(`Season ${data.season.number} created. Navigating...`);
+      setTimeout(() => navigate(`/admin/episodes?series=${form.seriesId}&season=${data.season._id}`), 600);
     } catch (err) {
       flash('err', err.response?.data?.message || 'Failed');
+      toast.error('Failed to create season');
     } finally {
       setBusy(false);
     }
@@ -105,12 +111,6 @@ export default function AdminSeasonNew() {
             >
               Create season
             </button>
-            <Link
-              to="/admin/episodes"
-              className="px-6 py-2.5 rounded-xl border border-slate-200 text-sm font-medium dark:border-white/10"
-            >
-              Next: add episode →
-            </Link>
           </div>
         </form>
       </Panel>

@@ -5,8 +5,9 @@ const Like = require('../models/Like');
 const Episode = require('../models/Episode');
 const Season = require('../models/Season');
 const Series = require('../models/Series');
+const Comment = require('../models/Comment');
 const { authenticate } = require('../middleware/auth');
-const { recommendationScore, norm } = require('../algorithms');
+const { calculateHybridScore, norm } = require('../algorithms');
 
 const router = express.Router();
 
@@ -44,6 +45,7 @@ router.get('/', authenticate, async (req, res) => {
     const wt = Math.min(1, (h.progressSeconds || 0) / Math.max(1, h.durationSeconds || ep.durationSeconds || 1));
     addGenres(se.seriesId.toString(), 0.2 + wt * 0.8);
   });
+  
   liked.forEach((l) => {
     const ep = episodes.find((e) => e._id.toString() === l.episodeId.toString());
     if (!ep) return;
@@ -51,20 +53,36 @@ router.get('/', authenticate, async (req, res) => {
     if (!se) return;
     addGenres(se.seriesId.toString(), 1);
   });
+  
   (req.user.preferredGenres || []).forEach((g) => {
     genreWeights[g] = (genreWeights[g] || 0) + 0.5;
   });
 
-  const maxGenre = Math.max(1, ...Object.values(genreWeights));
-
-  const watchedSet = new Set(history.map((h) => h.episodeId.toString()));
+  // Exclude completed episodes (>= 95% watched)
+  const completedSet = new Set(
+    history
+      .filter((h) => {
+        const duration = h.durationSeconds || 1;
+        return h.progressSeconds / duration >= 0.95;
+      })
+      .map((h) => h.episodeId.toString())
+  );
 
   const candidates = await Episode.find({
-    _id: { $nin: [...watchedSet].map((id) => new mongoose.Types.ObjectId(id)) },
+    _id: { $nin: [...completedSet].map((id) => new mongoose.Types.ObjectId(id)) },
   })
     .sort({ trendingScore: -1 })
     .limit(400)
     .lean();
+
+  const candidateIds = candidates.map((c) => c._id);
+  
+  // Aggregate comment counts for engagement score
+  const commentCountsRaw = await Comment.aggregate([
+    { $match: { episodeId: { $in: candidateIds } } },
+    { $group: { _id: '$episodeId', count: { $sum: 1 } } }
+  ]);
+  const commentCounts = Object.fromEntries(commentCountsRaw.map(c => [c._id.toString(), c.count]));
 
   const seasonIds = [...new Set(candidates.map((e) => e.seasonId.toString()))];
   const seasons2 = await Season.find({ _id: { $in: seasonIds.map((id) => new mongoose.Types.ObjectId(id)) } }).lean();
@@ -76,35 +94,93 @@ router.get('/', authenticate, async (req, res) => {
   }).lean();
   const series2map = Object.fromEntries(series2.map((s) => [s._id.toString(), s]));
 
-  const topLiked = await Episode.findOne().sort({ likes: -1 }).lean();
-  const maxLikes = Math.max(1, topLiked?.likes || 1);
-  const maxWatch = Math.max(
-    1,
-    history.reduce((m, h) => Math.max(m, h.progressSeconds || 0), 0)
-  );
+  // Find max values for normalization
+  const maxLikes = Math.max(1, ...candidates.map((c) => c.likes || 0));
+  const maxViews = Math.max(1, ...candidates.map((c) => c.views || 0));
+  
+  const engagements = candidates.map((c) => (c.likes || 0) + (commentCounts[c._id.toString()] || 0) * 2);
+  const maxEngagement = Math.max(1, ...engagements);
+
+  const userPreferredGenres = new Set(Object.keys(genreWeights));
+  const maxPossibleGenreMatch = Math.max(1, userPreferredGenres.size);
+
+  const now = Date.now();
 
   const scored = candidates.map((ep) => {
     const se = s2map[ep.seasonId.toString()];
     const ser = se ? series2map[se.seriesId.toString()] : null;
-    let categoryMatch = 0;
-    if (ser) {
-      (ser.genres || []).forEach((g) => {
-        categoryMatch += norm(genreWeights[g] || 0, maxGenre);
-      });
-      if ((ser.genres || []).length) categoryMatch /= ser.genres.length;
+    
+    // 1. genreMatch
+    let genreMatch = 0;
+    if (ser && ser.genres) {
+      genreMatch = ser.genres.filter((g) => userPreferredGenres.has(g)).length;
     }
-    const likeSignal = norm(ep.likes || 0, maxLikes);
-    const watchTimeSignal = norm(
-      history.find((h) => h.episodeId.toString() === ep._id.toString())?.progressSeconds || 0,
-      maxWatch
-    );
-    const score = recommendationScore({ categoryMatch, likeSignal, watchTimeSignal });
+    const normalizedGenreMatch = norm(genreMatch, maxPossibleGenreMatch);
+
+    // 2. watchCompletion
+    let watchCompletion = 0;
+    const histEntry = history.find((h) => h.episodeId.toString() === ep._id.toString());
+    if (histEntry) {
+       watchCompletion = Math.min(1, (histEntry.progressSeconds || 0) / Math.max(1, histEntry.durationSeconds || ep.durationSeconds || 1));
+    }
+
+    // 3. normalizedLikes & normalizedViews
+    const normalizedLikes = norm(ep.likes || 0, maxLikes);
+    const normalizedViews = norm(ep.views || 0, maxViews);
+
+    // 4. recencyBoost (1 / (daysSinceUpload + 1))
+    const daysSinceUpload = Math.max(0, (now - new Date(ep.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+    const recencyBoost = 1 / (daysSinceUpload + 1);
+
+    // 5. engagementScore
+    const comments = commentCounts[ep._id.toString()] || 0;
+    const rawEngagement = (ep.likes || 0) + comments * 2;
+    const normalizedEngagement = norm(rawEngagement, maxEngagement);
+
+    const score = calculateHybridScore({
+      normalizedGenreMatch,
+      watchCompletion,
+      normalizedLikes,
+      normalizedViews,
+      recencyBoost,
+      normalizedEngagement,
+    });
+
     return { episode: ep, series: ser, season: se, score };
   });
 
-  const visible = scored.filter((r) => r.series);
+  // Diversity Engine: Avoid consecutive same-genre repetition
+  const visible = scored.filter((r) => r.series && r.series.genres && r.series.genres.length > 0);
   visible.sort((a, b) => b.score - a.score);
-  res.json({ items: visible.slice(0, 24) });
+  
+  const diversityItems = [];
+  const recentGenres = [];
+  
+  for (const item of visible) {
+    if (diversityItems.length >= 20) break;
+    
+    // Use the primary categorizing genre to detect duplicates
+    const primaryGenre = item.series.genres[0];
+    
+    // Prevent 3 consecutive identical genres
+    const consecutiveCount = 2;
+    let isRepeating = true;
+    for (let i = 1; i <= consecutiveCount; i++) {
+      if (recentGenres.length < i || recentGenres[recentGenres.length - i] !== primaryGenre) {
+        isRepeating = false;
+        break;
+      }
+    }
+
+    if (isRepeating) {
+      continue; // Skip this video to ensure structural diversity
+    }
+    
+    diversityItems.push(item);
+    recentGenres.push(primaryGenre);
+  }
+
+  res.json({ items: diversityItems });
 });
 
 module.exports = router;

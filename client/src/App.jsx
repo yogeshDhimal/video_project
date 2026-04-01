@@ -9,6 +9,9 @@ import SearchPage from './pages/SearchPage';
 import Watch from './pages/Watch';
 import SeriesDetail from './pages/SeriesDetail';
 import Profile from './pages/Profile';
+import WatchTogetherHub from './pages/WatchTogetherHub';
+import WatchTogetherCreate from './pages/WatchTogetherCreate';
+import WatchRoomPage from './pages/WatchRoomPage';
 import AdminLayout from './admin/AdminLayout';
 import AdminDashboard from './admin/AdminDashboard';
 import AdminUsers from './admin/AdminUsers';
@@ -45,6 +48,9 @@ export default function App() {
         <Route path="/search" element={<SearchPage />} />
         <Route path="/series/:id" element={<SeriesDetail />} />
         <Route path="/watch/:episodeId" element={<Watch />} />
+        <Route path="/watch-together" element={<WatchTogetherHub />} />
+        <Route path="/watch-together/new" element={<PrivateRoute><WatchTogetherCreate /></PrivateRoute>} />
+        <Route path="/watch-together/:id" element={<WatchRoomPage />} />
         <Route
           path="/profile"
           element={

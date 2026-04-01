@@ -1,16 +1,29 @@
-/**
- * Trending: views * 0.6 + likes * 0.3 + recent_views * 0.1
- * Uses log-scaled inputs vs caps so huge channels do not dominate.
- */
-
 const { norm } = require('../shared/normalization');
 
 const TRENDING_WEIGHTS = {
-  views: 0.6,
+  views: 0.5,
   likes: 0.3,
-  recentViews: 0.1,
+  recentViews: 0.2,
 };
 
+/**
+ * Calculates dynamic trending score utilizing pool maximums
+ * to avoid single metrics overpowering the calculation.
+ */
+function calculateDynamicTrending(signals) {
+  const { normalizedViews, normalizedLikes, normalizedRecentViews } = signals;
+  
+  return (
+    (normalizedViews * TRENDING_WEIGHTS.views) +
+    (normalizedLikes * TRENDING_WEIGHTS.likes) +
+    (normalizedRecentViews * TRENDING_WEIGHTS.recentViews)
+  );
+}
+
+/**
+ * Legacy raw score used for quick database approximations on views.
+ * Uses log1p so huge channels don't dominate completely.
+ */
 function trendingScoreRaw(views, likes, recentViews) {
   const v = Math.log1p(views || 0);
   const l = Math.log1p(Math.max(0, likes || 0));
@@ -25,4 +38,4 @@ function trendingScoreRaw(views, likes, recentViews) {
   );
 }
 
-module.exports = { TRENDING_WEIGHTS, trendingScoreRaw };
+module.exports = { TRENDING_WEIGHTS, trendingScoreRaw, calculateDynamicTrending };

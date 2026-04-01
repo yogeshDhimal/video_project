@@ -40,4 +40,21 @@ async function getNextEpisode(episodeId) {
   return { episode: first, season: nextSeason, series };
 }
 
-module.exports = { getEpisodeChain, listEpisodesForSeries, getNextEpisode };
+async function getPrevEpisode(episodeId) {
+  const { episode, season, series } = await getEpisodeChain(episodeId);
+  if (!episode || !season || !series) return null;
+  const prevSame = await Episode.findOne({
+    seasonId: season._id,
+    number: episode.number - 1,
+  });
+  if (prevSame) {
+    return { episode: prevSame, season, series };
+  }
+  const prevSeason = await Season.findOne({ seriesId: series._id, number: season.number - 1 });
+  if (!prevSeason) return null;
+  const last = await Episode.findOne({ seasonId: prevSeason._id }).sort({ number: -1 });
+  if (!last) return null;
+  return { episode: last, season: prevSeason, series };
+}
+
+module.exports = { getEpisodeChain, listEpisodesForSeries, getNextEpisode, getPrevEpisode };

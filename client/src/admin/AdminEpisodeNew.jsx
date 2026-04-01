@@ -1,40 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import api from '../api/client';
 import { Field, Flash, inputClass, Panel } from './adminUi';
 
-function loadStored(key, fallback = '') {
-  try {
-    return sessionStorage.getItem(key) || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 export default function AdminEpisodeNew() {
+  const [searchParams] = useSearchParams();
+  const preSeries = searchParams.get('series') || '';
+  const preSeason = searchParams.get('season') || '';
+
   const [msg, setMsg] = useState({ type: '', text: '' });
   const [busy, setBusy] = useState(false);
   const [seriesList, setSeriesList] = useState([]);
   const [seasonsOptions, setSeasonsOptions] = useState([]);
-  const [lastSub, setLastSub] = useState(() => {
-    try {
-      const raw = sessionStorage.getItem('sv_admin_last_sub');
-      return raw ? JSON.parse(raw) : { fileName: '', format: 'vtt' };
-    } catch {
-      return { fileName: '', format: 'vtt' };
-    }
-  });
 
   const [form, setForm] = useState(() => ({
-    seriesId: '',
-    seasonId: '',
+    seriesId: preSeries,
+    seasonId: preSeason,
     number: 1,
     title: '',
     description: '',
-    durationSeconds: 0,
     qualityKey: '1080p',
-    videoFileName: loadStored('sv_admin_last_video', ''),
-    thumbnailPath: loadStored('sv_admin_last_epthumb', ''),
+    videoFileName: '',
+    thumbnailPath: '',
+    subtitleFileName: '',
     introStartSec: 0,
     introEndSec: 0,
     outroStartSec: 0,
@@ -43,8 +32,32 @@ export default function AdminEpisodeNew() {
     subLabel: 'English',
   }));
 
+  const handleFileUpload = async (e, field, endpoint, formKey) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const body = new FormData();
+    body.append(field, file);
+    setBusy(true);
+    let tid;
+    if (field === 'video') {
+      tid = toast.loading('Uploading video...');
+    }
+    try {
+      const { data } = await api.post(`/uploads/${endpoint}`, body);
+      setForm((f) => ({ ...f, [formKey]: data.fileName }));
+      if (tid) toast.success('Video uploaded', { id: tid });
+      else flash('ok', `Uploaded ${file.name}`);
+    } catch (err) {
+      const m = err.response?.data?.message || 'Upload failed';
+      if (tid) toast.error(m, { id: tid });
+      else flash('err', m);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const loadSeries = useCallback(async () => {
-    const { data } = await api.get('/series', { params: { limit: 200, page: 1, includeDrafts: '1' } });
+    const { data } = await api.get('/series', { params: { limit: 200, page: 1, includeDrafts: '1', type: 'series' } });
     setSeriesList(data.items || []);
   }, []);
 
@@ -52,7 +65,7 @@ export default function AdminEpisodeNew() {
     loadSeries();
   }, [loadSeries]);
 
-  const loadSeasons = async (seriesId) => {
+  const loadSeasons = useCallback(async (seriesId, defaultSeasonId = '') => {
     if (!seriesId) {
       setSeasonsOptions([]);
       setForm((f) => ({ ...f, seriesId: '', seasonId: '' }));
@@ -64,73 +77,41 @@ export default function AdminEpisodeNew() {
       setForm((f) => ({
         ...f,
         seriesId,
-        seasonId: data.seasons?.[0]?.season?._id || '',
+        seasonId: defaultSeasonId || data.seasons?.[0]?.season?._id || '',
       }));
     } catch {
       setSeasonsOptions([]);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (preSeries) {
+      loadSeasons(preSeries, preSeason);
+    }
+  }, [preSeries, preSeason, loadSeasons]);
 
   const flash = (type, text) => {
     setMsg({ type, text });
     if (text) setTimeout(() => setMsg({ type: '', text: '' }), 8000);
   };
 
-  const uploadVideo = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBusy(true);
-    try {
-      const fd = new FormData();
-      fd.append('video', file);
-      const { data } = await api.post('/uploads/video', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      sessionStorage.setItem('sv_admin_last_video', data.fileName);
-      setForm((f) => ({ ...f, videoFileName: data.fileName }));
-      flash('ok', `Video: ${data.fileName}`);
-    } catch (err) {
-      flash('err', err.response?.data?.message || 'Upload failed');
-    } finally {
-      setBusy(false);
-      e.target.value = '';
-    }
-  };
-
-  const uploadSub = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBusy(true);
-    try {
-      const fd = new FormData();
-      fd.append('subtitle', file);
-      const { data } = await api.post('/uploads/subtitle', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      const sub = { fileName: data.fileName, format: data.format };
-      sessionStorage.setItem('sv_admin_last_sub', JSON.stringify(sub));
-      setLastSub(sub);
-      flash('ok', `Subtitle: ${data.fileName}`);
-    } catch (err) {
-      flash('err', err.response?.data?.message || 'Failed');
-    } finally {
-      setBusy(false);
-      e.target.value = '';
-    }
-  };
-
   const submit = async (e) => {
     e.preventDefault();
     if (!form.seasonId || !form.videoFileName) {
-      flash('err', 'Select season and provide video file (upload or paste file name).');
+      flash('err', 'Select season and provide video file.');
+      toast.error('Season and video file required.');
       return;
     }
     setBusy(true);
     try {
       const qualities = [{ key: form.qualityKey || '1080p', fileName: form.videoFileName }];
       const subtitles = [];
-      if (lastSub.fileName) {
+      if (form.subtitleFileName) {
         subtitles.push({
           lang: form.subLang,
           label: form.subLabel || form.subLang,
-          fileName: lastSub.fileName,
-          format: lastSub.format === 'srt' ? 'srt' : 'vtt',
+          fileName: form.subtitleFileName,
+          format: form.subtitleFileName.endsWith('.srt') ? 'srt' : 'vtt',
         });
       }
       const { data } = await api.post('/episodes', {
@@ -138,7 +119,6 @@ export default function AdminEpisodeNew() {
         number: Number(form.number),
         title: form.title,
         description: form.description,
-        durationSeconds: Number(form.durationSeconds) || 0,
         qualities,
         subtitles,
         thumbnailPath: form.thumbnailPath || undefined,
@@ -148,7 +128,23 @@ export default function AdminEpisodeNew() {
         outroEndSec: Number(form.outroEndSec) || 0,
       });
       flash('ok', `Episode ready — watch at /watch/${data.episode._id}`);
+      toast.success('Episode created successfully!');
+      setForm((f) => ({
+        ...f,
+        number: Number(f.number) + 1,
+        title: '',
+        description: '',
+        videoFileName: '',
+        thumbnailPath: '',
+        subtitleFileName: '',
+        introStartSec: 0,
+        introEndSec: 0,
+        outroStartSec: 0,
+        outroEndSec: 0,
+      }));
+      e.target.reset();
     } catch (err) {
+      toast.error('Failed to create episode');
       flash('err', err.response?.data?.message || JSON.stringify(err.response?.data) || 'Failed');
     } finally {
       setBusy(false);
@@ -160,26 +156,8 @@ export default function AdminEpisodeNew() {
       <Flash msg={msg} />
       <Panel
         title="New episode"
-        subtitle="Link an uploaded video file to a season. Upload the video here or on the Media page."
+        subtitle="Upload an episode to your selected season. The form resets after publishing."
       >
-        <div className="mb-6 p-4 rounded-xl bg-slate-50 dark:bg-black/25 border border-slate-200 dark:border-white/10">
-          <p className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-2">Quick upload</p>
-          <input
-            type="file"
-            accept=".mp4,.mkv,.webm"
-            onChange={uploadVideo}
-            disabled={busy}
-            className="text-xs file:mr-3 file:py-2 file:px-3 file:rounded-lg file:bg-teal-600 file:text-white file:border-0"
-          />
-          <input
-            type="file"
-            accept=".vtt,.srt"
-            onChange={uploadSub}
-            disabled={busy}
-            className="block mt-3 text-xs file:mr-3 file:py-2 file:px-3 file:rounded-lg file:bg-slate-600 file:text-white file:border-0"
-          />
-        </div>
-
         <form onSubmit={submit} className="space-y-5">
           <div className="grid sm:grid-cols-2 gap-4">
             <Field label="Series *">
@@ -238,29 +216,36 @@ export default function AdminEpisodeNew() {
                 onChange={(e) => setForm((f) => ({ ...f, qualityKey: e.target.value }))}
               />
             </Field>
-            <Field label="Video file name *">
+            <Field label="Video file (MP4, MKV) *">
               <input
+                type="file"
+                accept=".mp4,.mkv,.webm"
                 className={inputClass}
-                value={form.videoFileName}
-                onChange={(e) => setForm((f) => ({ ...f, videoFileName: e.target.value }))}
-                required
+                onChange={(e) => handleFileUpload(e, 'video', 'video', 'videoFileName')}
+                disabled={busy}
+                required={!form.videoFileName}
               />
+              {form.videoFileName && <div className="text-xs text-teal-600 mt-1 dark:text-teal-400">Selected: {form.videoFileName}</div>}
             </Field>
-            <Field label="Duration (seconds)">
+            <Field label="Episode thumbnail image">
               <input
-                type="number"
-                min={0}
+                type="file"
+                accept="image/*"
                 className={inputClass}
-                value={form.durationSeconds}
-                onChange={(e) => setForm((f) => ({ ...f, durationSeconds: e.target.value }))}
+                onChange={(e) => handleFileUpload(e, 'thumbnail', 'thumbnail', 'thumbnailPath')}
+                disabled={busy}
               />
+              {form.thumbnailPath && <div className="text-xs text-teal-600 mt-1 dark:text-teal-400">Selected: {form.thumbnailPath}</div>}
             </Field>
-            <Field label="Episode thumbnail file name">
+            <Field label="Subtitle (.vtt, .srt)" className="sm:col-span-2">
               <input
+                type="file"
+                accept=".vtt,.srt"
                 className={inputClass}
-                value={form.thumbnailPath}
-                onChange={(e) => setForm((f) => ({ ...f, thumbnailPath: e.target.value }))}
+                onChange={(e) => handleFileUpload(e, 'subtitle', 'subtitle', 'subtitleFileName')}
+                disabled={busy}
               />
+              {form.subtitleFileName && <div className="text-xs text-teal-600 mt-1 dark:text-teal-400">Selected: {form.subtitleFileName}</div>}
             </Field>
           </div>
           <Field label="Description">
@@ -304,7 +289,7 @@ export default function AdminEpisodeNew() {
               />
             </Field>
           </div>
-          {lastSub.fileName && (
+          {form.subtitleFileName && (
             <div className="grid sm:grid-cols-2 gap-4">
               <Field label="Subtitle language">
                 <input

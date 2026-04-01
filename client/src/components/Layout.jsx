@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
+import Footer from './Footer';
 
 export default function Layout() {
   return (
@@ -31,16 +32,7 @@ export default function Layout() {
       <main className="flex-1 relative">
         <Outlet />
       </main>
-      <footer className="relative border-t border-slate-200/80 dark:border-white/[0.06] py-10 text-center transition-colors">
-        <p className="text-sm text-slate-600 dark:text-slate-500">
-          <span className="font-display font-semibold text-slate-800 dark:text-slate-400">StreamVault</span>
-          <span className="mx-2 text-slate-400 dark:text-slate-600">·</span>
-          Local-first streaming
-        </p>
-        <p className="text-xs text-slate-500 dark:text-slate-600 mt-2 font-medium tracking-wide">
-          Charcoal · Teal · Ice
-        </p>
-      </footer>
+      <Footer />
     </div>
   );
 }

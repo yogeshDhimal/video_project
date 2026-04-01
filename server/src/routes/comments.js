@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Comment = require('../models/Comment');
+const CommentVote = require('../models/CommentVote');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Episode = require('../models/Episode');
@@ -19,16 +20,25 @@ router.get('/', optionalAuth, async (req, res) => {
     .select('username avatar')
     .lean();
   const umap = Object.fromEntries(users.map((u) => [u._id.toString(), u]));
+
+  let userVotes = {};
+  if (req.user) {
+    const allCommentIds = [...top, ...replies].map((c) => c._id);
+    const votes = await CommentVote.find({ userId: req.user._id, commentId: { $in: allCommentIds } }).lean();
+    userVotes = Object.fromEntries(votes.map((v) => [v.commentId.toString(), v.value]));
+  }
+
   const repByParent = {};
   replies.forEach((r) => {
     const k = r.parentId.toString();
     if (!repByParent[k]) repByParent[k] = [];
-    repByParent[k].push({ ...r, user: umap[r.userId.toString()] });
+    repByParent[k].push({ ...r, user: umap[r.userId.toString()], userVote: userVotes[r._id.toString()] || 0 });
   });
   res.json({
     comments: top.map((c) => ({
       ...c,
       user: umap[c.userId.toString()],
+      userVote: userVotes[c._id.toString()] || 0,
       replies: repByParent[c._id.toString()] || [],
     })),
   });
@@ -78,7 +88,54 @@ router.delete('/:commentId', authenticate, async (req, res) => {
     return res.status(403).json({ message: 'Forbidden' });
   }
   await Comment.deleteMany({ $or: [{ _id: c._id }, { parentId: c._id }] });
+  await CommentVote.deleteMany({ commentId: c._id }); // cleanup
   res.json({ message: 'Deleted' });
+});
+
+router.post('/:commentId/vote', authenticate, async (req, res) => {
+  const { episodeId, commentId } = req.params;
+  const { value } = req.body;
+  if (![1, -1].includes(value)) return res.status(400).json({ message: 'value must be 1 or -1' });
+
+  const comment = await Comment.findOne({ _id: commentId, episodeId });
+  if (!comment) return res.status(404).json({ message: 'Comment not found' });
+
+  const existing = await CommentVote.findOne({ userId: req.user._id, commentId: comment._id });
+  let deltaLikes = 0;
+  let deltaDis = 0;
+
+  if (existing) {
+    if (existing.value === value) {
+      await CommentVote.deleteOne({ _id: existing._id });
+      if (value === 1) deltaLikes = -1;
+      else deltaDis = -1;
+    } else {
+      existing.value = value;
+      await existing.save();
+      if (value === 1) {
+        deltaLikes = 1;
+        deltaDis = -1;
+      } else {
+        deltaLikes = -1;
+        deltaDis = 1;
+      }
+    }
+  } else {
+    await CommentVote.create({ userId: req.user._id, commentId: comment._id, value });
+    if (value === 1) deltaLikes = 1;
+    else deltaDis = 1;
+  }
+
+  comment.likes = Math.max(0, (comment.likes || 0) + deltaLikes);
+  comment.dislikes = Math.max(0, (comment.dislikes || 0) + deltaDis);
+  await comment.save();
+
+  const mine = await CommentVote.findOne({ userId: req.user._id, commentId: comment._id });
+  res.json({
+    likes: comment.likes,
+    dislikes: comment.dislikes,
+    userVote: mine ? mine.value : 0,
+  });
 });
 
 module.exports = router;

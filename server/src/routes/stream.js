@@ -60,4 +60,44 @@ router.get('/thumbnail/:episodeId', streamLimiter, authenticate, async (req, res
   fs.createReadStream(abs).pipe(res);
 });
 
+async function assertSeriesPlayable(series, user) {
+  if (series.catalogStatus === 'draft' && user?.role !== 'admin') return false;
+  return true;
+}
+
+router.get('/series/:seriesId/video', streamLimiter, authenticate, async (req, res) => {
+  const s = await Series.findById(req.params.seriesId);
+  if (!s || !s.videoFile) return res.status(404).json({ message: 'Not found' });
+  if (!(await assertSeriesPlayable(s, req.user))) return res.status(404).json({ message: 'Not found' });
+  const abs = resolveVideoPath(s.videoFile);
+  if (!abs || !fs.existsSync(abs)) return res.status(404).json({ message: 'File missing' });
+  try {
+    await sendVideoRange(req, res, abs);
+  } catch (e) {
+    if (!res.headersSent) res.status(500).end();
+  }
+});
+
+router.get('/series/:seriesId/subtitle/:fileName', streamLimiter, authenticate, async (req, res) => {
+  const s = await Series.findById(req.params.seriesId);
+  if (!s || !s.subtitleFile) return res.status(404).json({ message: 'Not found' });
+  if (!(await assertSeriesPlayable(s, req.user))) return res.status(404).json({ message: 'Not found' });
+  if (req.params.fileName.includes('..')) return res.status(400).end();
+  const abs = path.join(SUBTITLES, path.basename(req.params.fileName));
+  if (!fs.existsSync(abs)) return res.status(404).end();
+  const ext = s.subtitleFile.toLowerCase().endsWith('.srt') ? 'srt' : 'vtt';
+  res.setHeader('Content-Type', ext === 'srt' ? 'text/plain' : 'text/vtt');
+  fs.createReadStream(abs).pipe(res);
+});
+
+router.get('/series/:seriesId/thumbnail', streamLimiter, authenticate, async (req, res) => {
+  const s = await Series.findById(req.params.seriesId);
+  if (!s || !s.thumbnailPath) return res.status(404).end();
+  if (!(await assertSeriesPlayable(s, req.user))) return res.status(404).end();
+  const abs = path.join(THUMBNAILS, path.basename(s.thumbnailPath));
+  if (!fs.existsSync(abs)) return res.status(404).end();
+  res.setHeader('Content-Type', 'image/jpeg');
+  fs.createReadStream(abs).pipe(res);
+});
+
 module.exports = router;

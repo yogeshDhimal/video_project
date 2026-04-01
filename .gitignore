@@ -7,3 +7,4 @@ server/subtitles/*
 server/avatars/*
 server/hls/*
 !**/.gitkeep
+server/.env.example

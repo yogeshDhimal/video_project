@@ -1,7 +1,7 @@
 const express = require('express');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { uploadLimiter } = require('../middleware/rateLimiters');
-const { uploadVideo, uploadThumb, uploadSub } = require('../config/multer');
+const { uploadVideo, uploadThumb, uploadSub, uploadPoster } = require('../config/multer');
 
 const router = express.Router();
 
@@ -44,6 +44,18 @@ router.post(
     if (!req.file) return res.status(400).json({ message: 'No file' });
     const ext = req.file.originalname.toLowerCase().endsWith('.srt') ? 'srt' : 'vtt';
     res.json({ fileName: req.file.filename, originalName: req.file.originalname, format: ext });
+  }
+);
+
+router.post(
+  '/poster',
+  uploadLimiter,
+  authenticate,
+  requireRole('admin'),
+  uploadPoster.single('poster'),
+  (req, res) => {
+    if (!req.file) return res.status(400).json({ message: 'No file' });
+    res.json({ fileName: req.file.filename, originalName: req.file.originalname });
   }
 );
 

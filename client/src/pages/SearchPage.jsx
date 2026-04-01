@@ -16,7 +16,6 @@ export default function SearchPage() {
   const [q, setQ] = useState('');
   const debounced = useDebounced(q, 350);
   const [series, setSeries] = useState([]);
-  const [episodes, setEpisodes] = useState([]);
   const [suggest, setSuggest] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -27,7 +26,6 @@ export default function SearchPage() {
       const { data } = await api.get('/search', { params: { q: debounced } });
       if (!cancelled) {
         setSeries(data.series || []);
-        setEpisodes(data.episodes || []);
         setLoading(false);
       }
     })();
@@ -98,22 +96,6 @@ export default function SearchPage() {
             </li>
           ))}
           {!series.length && !loading && <li className="text-slate-500">No series</li>}
-        </ul>
-      </section>
-      <section>
-        <h2 className="text-lg font-display font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-          <span className="w-1 h-5 rounded-full bg-cyan-500 dark:bg-ice-500" />
-          Episodes
-        </h2>
-        <ul className="space-y-2">
-          {episodes.map((e) => (
-            <li key={e._id}>
-              <Link to={`/watch/${e._id}`} className="text-cyan-700 dark:text-ice-400 hover:underline font-medium">
-                {e.title}
-              </Link>
-            </li>
-          ))}
-          {!episodes.length && !loading && <li className="text-slate-500">No episodes</li>}
         </ul>
       </section>
     </div>

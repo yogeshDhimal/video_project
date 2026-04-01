@@ -8,6 +8,9 @@ const seriesSchema = new mongoose.Schema(
     tags: [{ type: String }],
     releaseYear: { type: Number, index: true },
     posterPath: { type: String, default: '' },
+    videoFile: { type: String, default: '' },
+    thumbnailPath: { type: String, default: '' },
+    subtitleFile: { type: String, default: '' },
     type: { type: String, enum: ['series', 'movie'], default: 'series' },
     /** Show lifecycle (ongoing / completed) — not the same as catalog visibility */
     status: { type: String, enum: ['ongoing', 'completed', 'hiatus'], default: 'ongoing' },

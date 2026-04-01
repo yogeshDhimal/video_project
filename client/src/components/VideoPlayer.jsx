@@ -1,24 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api/client';
 
-function streamUrl(episodeId, qualityKey, token) {
+function streamUrl(id, qualityKey, token, isSeries) {
   const q = new URLSearchParams();
   if (token) q.set('token', token);
-  return `/api/stream/episode/${episodeId}/quality/${qualityKey}?${q.toString()}`;
+  if (isSeries) return `/api/stream/series/${id}/video?${q.toString()}`;
+  return `/api/stream/episode/${id}/quality/${qualityKey}?${q.toString()}`;
 }
 
-function subUrl(episodeId, fileName, token) {
+function subUrl(id, fileName, token, isSeries) {
   const q = new URLSearchParams();
   if (token) q.set('token', token);
-  return `/api/stream/subtitle/${episodeId}/${encodeURIComponent(fileName)}?${q.toString()}`;
+  if (isSeries) return `/api/stream/series/${id}/subtitle/${encodeURIComponent(fileName)}?${q.toString()}`;
+  return `/api/stream/subtitle/${id}/${encodeURIComponent(fileName)}?${q.toString()}`;
 }
 
 export default function VideoPlayer({
   episode,
   token,
   onEnded,
+  onPrev,
+  onNext,
   autoNextEnabled = true,
   introOutro = {},
+  isSeries = false,
 }) {
   const videoRef = useRef(null);
   const [playing, setPlaying] = useState(false);
@@ -45,9 +50,9 @@ export default function VideoPlayer({
   }, [episode, qualities, qualityKey]);
 
   const src = useMemo(() => {
-    if (!episode?._id || !qualities.length) return '';
-    return streamUrl(episode._id, qualityKey, token);
-  }, [episode, qualityKey, qualities.length, token]);
+    if (!episode?._id || (!isSeries && !qualities.length)) return '';
+    return streamUrl(episode._id, qualityKey, token, isSeries);
+  }, [episode, qualityKey, qualities.length, token, isSeries]);
 
   const reportProgress = useCallback(
     async (sec, dur) => {
@@ -185,7 +190,7 @@ export default function VideoPlayer({
               kind="subtitles"
               srcLang={subtitles[selectedSub].lang}
               label={subtitles[selectedSub].label || subtitles[selectedSub].lang}
-              src={subUrl(episode._id, subtitles[selectedSub].fileName, token)}
+              src={subUrl(episode._id, subtitles[selectedSub].fileName, token, isSeries)}
               default
             />
           )}
@@ -195,13 +200,28 @@ export default function VideoPlayer({
 
       <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-t from-black/90 to-transparent pointer-events-auto">
         <div className="flex items-center gap-2 text-xs text-slate-300 flex-wrap">
+          {onPrev && (
+            <button onClick={onPrev} title="Previous Episode" type="button" className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+            </button>
+          )}
           <button
             type="button"
             onClick={togglePlay}
-            className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20"
+            title={playing ? 'Pause' : 'Play'}
+            className="p-1.5 rounded-lg bg-teal-600/90 hover:bg-teal-500 text-white transition-colors"
           >
-            {playing ? 'Pause' : 'Play'}
+            {playing ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            )}
           </button>
+          {onNext && (
+            <button onClick={onNext} title="Next Episode" type="button" className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+            </button>
+          )}
           <span>
             {formatTime(current)} / {formatTime(duration)}
           </span>
@@ -282,9 +302,14 @@ export default function VideoPlayer({
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20"
+            title={fs ? 'Exit Fullscreen' : 'Fullscreen'}
+            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors ml-auto"
           >
-            {fs ? 'Exit FS' : 'Fullscreen'}
+            {fs ? (
+               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path></svg>
+            ) : (
+               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+            )}
           </button>
         </div>
       </div>
