@@ -91,7 +91,7 @@ export default function SpotlightSlider({ items }) {
             {/* Background Art */}
             <div className="absolute inset-0">
               <img 
-                src={`/api/stream/thumbnail/${episode._id}?token=${localStorage.getItem('sv_token') || ''}`} 
+                src={`/api/stream/thumbnail/${episode._id}`} 
                 alt={series?.title}
                 className="w-full h-full object-cover object-center pointer-events-none"
                 draggable={false}

@@ -38,7 +38,7 @@ export default function VideoPlayer({
   const [fs, setFs] = useState(false);
   const sessionId = useMemo(() => Math.random().toString(36).slice(2), [episode?._id]);
   const lastSent = useRef(0);
-  const progressTimer = useRef(null);
+  // Removed unused progressTimer ref (issue 3.5)
 
   const qualities = episode?.qualities || [];
   const subtitles = episode?.subtitles || [];

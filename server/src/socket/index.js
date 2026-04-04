@@ -1,11 +1,37 @@
+const jwt = require('jsonwebtoken');
 const Comment = require('../models/Comment');
 const User = require('../models/User');
 const WatchRoom = require('../models/WatchRoom');
+const env = require('../config/env');
 
 function initSocket(httpServer, app) {
   const { Server } = require('socket.io');
   const io = new Server(httpServer, {
     cors: { origin: true, credentials: true },
+  });
+
+  // Fixed: Socket.IO authentication middleware (issue 2.7)
+  // Verifies JWT on connection instead of trusting client-supplied userId
+  io.use(async (socket, next) => {
+    const token = socket.handshake.auth?.token;
+    if (!token) {
+      // Allow unauthenticated connections for read-only presence
+      socket.data.user = null;
+      return next();
+    }
+    try {
+      const payload = jwt.verify(token, env.jwtSecret);
+      const user = await User.findById(payload.sub).select('_id username avatar role banned');
+      if (!user || user.banned) {
+        socket.data.user = null;
+        return next();
+      }
+      socket.data.user = user;
+      next();
+    } catch (e) {
+      socket.data.user = null;
+      next(); // Allow connection but without auth
+    }
   });
 
   io.on('connection', (socket) => {
@@ -26,13 +52,14 @@ function initSocket(httpServer, app) {
       socket.leave(`ep:${episodeId}`);
     });
 
+    // Fixed: use verified socket.data.user instead of client-supplied userId (issue 2.7)
     socket.on('live_comment', async (payload, cb) => {
       try {
-        const { episodeId, body, userId } = payload;
-        if (!episodeId || !body || !userId) return cb?.({ error: 'Invalid' });
-        const user = await User.findById(userId);
-        if (!user) return cb?.({ error: 'User not found' });
-        const c = await Comment.create({ episodeId, userId, body: String(body).slice(0, 4000), parentId: null });
+        const user = socket.data.user;
+        if (!user) return cb?.({ error: 'Authentication required' });
+        const { episodeId, body } = payload;
+        if (!episodeId || !body) return cb?.({ error: 'Invalid' });
+        const c = await Comment.create({ episodeId, userId: user._id, body: String(body).slice(0, 4000), parentId: null });
         const msg = { ...c.toObject(), user: { username: user.username, avatar: user.avatar } };
         io.to(`ep:${episodeId}`).emit('live_comment', msg);
         cb?.({ ok: true, comment: msg });
@@ -70,9 +97,12 @@ function initSocket(httpServer, app) {
       }
     });
 
-    socket.on('watch_room_control', async ({ roomId, action, payload, userId }) => {
+    // Fixed: use verified socket.data.user._id instead of client-supplied userId (issue 2.7)
+    socket.on('watch_room_control', async ({ roomId, action, payload }) => {
+      const user = socket.data.user;
+      if (!user) return;
       const r = await WatchRoom.findById(roomId);
-      if (!r || r.hostId.toString() !== userId) return; // Only host can emit control
+      if (!r || r.hostId.toString() !== user._id.toString()) return; // Only host can emit control
       
       if (action === 'close_room') {
         r.status = 'finished';
@@ -82,7 +112,7 @@ function initSocket(httpServer, app) {
       }
       
       if (action === 'play') {
-        r.status = 'active'; // Force transition if scheduled
+        r.status = 'active';
         r.isPlaying = true;
         r.currentVideoTime = payload.time;
         r.playbackUpdatedAt = new Date();
@@ -103,15 +133,22 @@ function initSocket(httpServer, app) {
       io.to(`wr:${roomId}`).emit('watch_room_sync', { action, payload, room: r });
     });
 
-    socket.on('watch_room_chat', async ({ roomId, userId, message }) => {
-       const user = await User.findById(userId);
-       if (user && message.trim()) {
-          io.to(`wr:${roomId}`).emit('watch_room_chat', { username: user.username, message: message.trim(), timestamp: new Date() });
-       }
+    // Fixed: use verified user, sanitize and limit message length (issues 2.7, 6.6)
+    socket.on('watch_room_chat', async ({ roomId, message }) => {
+      const user = socket.data.user;
+      if (!user) return;
+      const sanitized = String(message || '').trim().slice(0, 2000);
+      if (sanitized) {
+        io.to(`wr:${roomId}`).emit('watch_room_chat', {
+          username: user.username,
+          message: sanitized,
+          timestamp: new Date(),
+        });
+      }
     });
   });
 
-  // Scheduled Rooms Auto-Start Ticker & Garbage Collection
+  // Fixed: increased interval from 5s to 60s, added error logging (issue 2.9)
   setInterval(async () => {
     try {
       const now = new Date();
@@ -139,8 +176,10 @@ function initSocket(httpServer, app) {
         { status: 'active', playbackUpdatedAt: { $lte: sixHoursAgo } },
         { status: 'finished' }
       );
-    } catch (e) { /* ignore */ }
-  }, 5000);
+    } catch (e) {
+      console.error('[WatchRoom GC]', e.message);
+    }
+  }, 60_000); // Every 60 seconds instead of 5 seconds
 
   app.set('io', io);
   return io;

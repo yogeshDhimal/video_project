@@ -7,11 +7,12 @@ const Season = require('../models/Season');
 const Series = require('../models/Series');
 const Comment = require('../models/Comment');
 const { authenticate } = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/asyncHandler');
 const { calculateHybridScore, norm, getCollaborativeRecommendations, buildRatingMatrix, getSVDRecommendations } = require('../algorithms');
 
 const router = express.Router();
 
-router.get('/', authenticate, async (req, res) => {
+router.get('/', authenticate, asyncHandler(async (req, res) => {
   const userId = req.user._id;
 
   const history = await WatchHistory.find({ userId })
@@ -22,11 +23,11 @@ router.get('/', authenticate, async (req, res) => {
 
   const episodeIds = [...new Set([...history.map((h) => h.episodeId.toString()), ...liked.map((l) => l.episodeId.toString())])];
   const episodes = await Episode.find({ _id: { $in: episodeIds.map((id) => new mongoose.Types.ObjectId(id)) } }).lean();
-  const seasons = await Season.find({ _id: { $in: [...new Set(episodes.map((e) => e.seasonId.toString()))].map((id) => new mongoose.Types.ObjectId(id)) } }).lean();
-  const seriesIds = [...new Set(seasons.map((s) => s.seriesId.toString()))];
-  const seriesList = await Series.find({ _id: { $in: seriesIds.map((id) => new mongoose.Types.ObjectId(id)) } }).lean();
-  const seasonById = Object.fromEntries(seasons.map((s) => [s._id.toString(), s]));
-  const seriesById = Object.fromEntries(seriesList.map((s) => [s._id.toString(), s]));
+  const userSeasons = await Season.find({ _id: { $in: [...new Set(episodes.map((e) => e.seasonId.toString()))].map((id) => new mongoose.Types.ObjectId(id)) } }).lean();
+  const userSeriesIds = [...new Set(userSeasons.map((s) => s.seriesId.toString()))];
+  const userSeriesList = await Series.find({ _id: { $in: userSeriesIds.map((id) => new mongoose.Types.ObjectId(id)) } }).lean();
+  const seasonById = Object.fromEntries(userSeasons.map((s) => [s._id.toString(), s]));
+  const seriesById = Object.fromEntries(userSeriesList.map((s) => [s._id.toString(), s]));
 
   const genreWeights = {};
   const addGenres = (sid, weight) => {
@@ -93,15 +94,16 @@ router.get('/', authenticate, async (req, res) => {
   ]);
   const commentCounts = Object.fromEntries(commentCountsRaw.map(c => [c._id.toString(), c.count]));
 
-  const seasonIds = [...new Set(candidates.map((e) => e.seasonId.toString()))];
-  const seasons2 = await Season.find({ _id: { $in: seasonIds.map((id) => new mongoose.Types.ObjectId(id)) } }).lean();
-  const s2map = Object.fromEntries(seasons2.map((s) => [s._id.toString(), s]));
-  const seriesIds2 = [...new Set(seasons2.map((s) => s.seriesId.toString()))];
-  const series2 = await Series.find({
-    _id: { $in: seriesIds2.map((id) => new mongoose.Types.ObjectId(id)) },
+  // Fixed: renamed to candidateSeasonIds to avoid variable shadowing (issue 1.1)
+  const candidateSeasonIds = [...new Set(candidates.map((e) => e.seasonId.toString()))];
+  const candidateSeasons = await Season.find({ _id: { $in: candidateSeasonIds.map((id) => new mongoose.Types.ObjectId(id)) } }).lean();
+  const s2map = Object.fromEntries(candidateSeasons.map((s) => [s._id.toString(), s]));
+  const candidateSeriesIds = [...new Set(candidateSeasons.map((s) => s.seriesId.toString()))];
+  const candidateSeries = await Series.find({
+    _id: { $in: candidateSeriesIds.map((id) => new mongoose.Types.ObjectId(id)) },
     catalogStatus: { $ne: 'draft' },
   }).lean();
-  const series2map = Object.fromEntries(series2.map((s) => [s._id.toString(), s]));
+  const candidateSeriesMap = Object.fromEntries(candidateSeries.map((s) => [s._id.toString(), s]));
 
   // Find max values for normalization
   const maxLikes = Math.max(1, ...candidates.map((c) => c.likes || 0));
@@ -117,7 +119,7 @@ router.get('/', authenticate, async (req, res) => {
 
   const scored = candidates.map((ep) => {
     const se = s2map[ep.seasonId.toString()];
-    const ser = se ? series2map[se.seriesId.toString()] : null;
+    const ser = se ? candidateSeriesMap[se.seriesId.toString()] : null;
     
     // 1. genreMatch
     let genreMatch = 0;
@@ -147,7 +149,6 @@ router.get('/', authenticate, async (req, res) => {
     const normalizedEngagement = norm(rawEngagement, maxEngagement);
 
     // 6. Collaborative Pearson Core
-    // Normalize math prediction (3.0 - 5.0) to (0.0 - 1.0)
     let pearsonBoost = 0;
     const pred = cfScores[ep._id.toString()];
     if (pred && pred > 3.0) {
@@ -197,10 +198,7 @@ router.get('/', authenticate, async (req, res) => {
   for (const item of visible) {
     if (diversityItems.length >= 20) break;
     
-    // Use the primary categorizing genre to detect duplicates
     const primaryGenre = item.series.genres[0];
-    
-    // Prevent 3 consecutive identical genres
     const consecutiveCount = 2;
     let isRepeating = true;
     for (let i = 1; i <= consecutiveCount; i++) {
@@ -210,15 +208,13 @@ router.get('/', authenticate, async (req, res) => {
       }
     }
 
-    if (isRepeating) {
-      continue; // Skip this video to ensure structural diversity
-    }
+    if (isRepeating) continue;
     
     diversityItems.push(item);
     recentGenres.push(primaryGenre);
   }
 
   res.json({ items: diversityItems });
-});
+}));
 
 module.exports = router;

@@ -92,8 +92,9 @@ export default function Watch() {
     };
   }, [episodeId]);
 
+  // Fixed: use user?._id in dep array instead of user object to prevent socket churn (issue 3.2)
   useEffect(() => {
-    if (!user || !episodeId) return undefined;
+    if (!user?._id || !episodeId) return undefined;
     const socket = io({
       path: '/socket.io',
       auth: { token },
@@ -108,12 +109,12 @@ export default function Watch() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [episodeId, user, token]);
+  }, [episodeId, user?._id, token]);
 
   const submitLiveChat = (e) => {
     e.preventDefault();
     if (!liveMsg.trim() || !socketRef.current || !user) return;
-    socketRef.current.emit('live_comment', { episodeId, body: liveMsg, userId: user._id }, (res) => {
+    socketRef.current.emit('live_comment', { episodeId, body: liveMsg }, (res) => {
       if (res && res.error) console.error(res.error);
     });
     setLiveMsg('');
@@ -123,7 +124,7 @@ export default function Watch() {
     return (
       <div className="max-w-5xl mx-auto px-4 py-20 text-center">
         <p className="text-slate-700 dark:text-slate-300 font-medium mb-2">Episode unavailable</p>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">It may have been removed or you don’t have access.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">It may have been removed or you don't have access.</p>
         <Link to="/browse" className="text-teal-600 dark:text-teal-400 font-medium hover:underline">
           Back to browse
         </Link>
@@ -141,13 +142,26 @@ export default function Watch() {
 
   const { episode, series, season } = data;
 
+  // Fixed: optimistic comment append instead of full refetch (issue 3.3)
   const submitComment = async (e) => {
     e.preventDefault();
     if (!comment.trim()) return;
-    await api.post(`/episodes/${episodeId}/comments`, { body: comment });
-    setComment('');
-    const { data: c } = await api.get(`/episodes/${episodeId}/comments`);
-    setComments(c.comments || []);
+    try {
+      const { data: cData } = await api.post(`/episodes/${episodeId}/comments`, { body: comment });
+      setComment('');
+      // Optimistically prepend new comment
+      if (cData.comment) {
+        setComments((prev) => [{ ...cData.comment, user: { username: user.username }, replies: [] }, ...prev]);
+      } else {
+        // Fallback: refetch if server doesn't return the comment
+        const { data: c } = await api.get(`/episodes/${episodeId}/comments`);
+        setComments(c.comments || []);
+      }
+    } catch {
+      // Fallback on error
+      const { data: c } = await api.get(`/episodes/${episodeId}/comments`);
+      setComments(c.comments || []);
+    }
   };
 
   const handleVote = async (value) => {

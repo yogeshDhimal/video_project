@@ -7,9 +7,10 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Tightened: 10 attempts per 15 min to block credential stuffing (was 1000)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 1000,
+  max: 10,
   message: { message: 'Too many attempts, try again later' },
 });
 

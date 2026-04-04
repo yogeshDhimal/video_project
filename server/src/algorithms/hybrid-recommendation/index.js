@@ -1,5 +1,5 @@
 /**
- * Advanced Hybrid Recommendation System (College Project)
+ * Advanced Hybrid Recommendation System
  *
  * Combines:
  * - Content-based filtering (genre matching)
@@ -8,7 +8,8 @@
  * - Recency (new videos boost)
  * - Engagement (likes, comments)
  *
- * Included Math.random() injection for serendipitous diversity
+ * Math.random() removed — diversity is handled by the Diversity Engine
+ * in the recommendations route instead.
  */
 
 const HYBRID_WEIGHTS = {
@@ -30,16 +31,13 @@ function calculateHybridScore(signals) {
     normalizedEngagement = 0,
   } = signals;
 
-  let baseScore = 
+  const baseScore =
     (normalizedGenreMatch * HYBRID_WEIGHTS.genreMatch) +
     (watchCompletion * HYBRID_WEIGHTS.watchCompletion) +
     (normalizedLikes * HYBRID_WEIGHTS.likes) +
     (normalizedViews * HYBRID_WEIGHTS.views) +
     (recencyBoost * HYBRID_WEIGHTS.recencyBoost) +
     (normalizedEngagement * HYBRID_WEIGHTS.engagementScore);
-
-  // Math.random() scale based on user requirement
-  baseScore += Math.random() * 0.5;
 
   return baseScore;
 }

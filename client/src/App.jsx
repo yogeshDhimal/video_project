@@ -1,42 +1,32 @@
-import { useEffect } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { Suspense, useEffect } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import Layout from './components/Layout';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+
+// Pages
 import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
 import Browse from './pages/Browse';
 import SearchPage from './pages/SearchPage';
 import Watch from './pages/Watch';
 import SeriesDetail from './pages/SeriesDetail';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import Profile from './pages/Profile';
 import WatchTogetherHub from './pages/WatchTogetherHub';
 import WatchTogetherCreate from './pages/WatchTogetherCreate';
 import WatchRoomPage from './pages/WatchRoomPage';
-import AdminLayout from './admin/AdminLayout';
-import AdminDashboard from './admin/AdminDashboard';
-import AdminUsers from './admin/AdminUsers';
-import AdminMedia from './admin/AdminMedia';
-import AdminSeriesIndex from './admin/AdminSeriesIndex';
-import AdminSeriesNew from './admin/AdminSeriesNew';
-import AdminSeriesDrafts from './admin/AdminSeriesDrafts';
-import AdminSeasonNew from './admin/AdminSeasonNew';
-import AdminEpisodeNew from './admin/AdminEpisodeNew';
-import AdminGuide from './admin/AdminGuide';
-import Spinner from './components/Spinner';
+import NotFound from './pages/NotFound';
 
-function PrivateRoute({ children, admin }) {
-  const { user, loading } = useAuth();
-  if (loading)
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-charcoal-950">
-        <Spinner label="Loading session…" />
-      </div>
-    );
-  if (!user) return <Navigate to="/login" replace />;
-  if (admin && user.role !== 'admin') return <Navigate to="/" replace />;
-  return children;
-}
+// Lazy load admin components to reduce initial bundle size
+const AdminLayout = React.lazy(() => import('./admin/AdminLayout'));
+const AdminDashboard = React.lazy(() => import('./admin/AdminDashboard'));
+const AdminSeriesIndex = React.lazy(() => import('./admin/AdminSeriesIndex'));
+const AdminSeriesNew = React.lazy(() => import('./admin/AdminSeriesNew'));
+const AdminSeasonNew = React.lazy(() => import('./admin/AdminSeasonNew'));
+const AdminEpisodeNew = React.lazy(() => import('./admin/AdminEpisodeNew'));
+const AdminMedia = React.lazy(() => import('./admin/AdminMedia'));
+const AdminUsers = React.lazy(() => import('./admin/AdminUsers'));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -46,51 +36,61 @@ function ScrollToTop() {
   return null;
 }
 
+function PrivateRoute({ children, adminOnly = false }) {
+  const { user, loading, isAdmin } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" />;
+  if (adminOnly && !isAdmin) return <Navigate to="/" />;
+  return children;
+}
+
+function AppContent() {
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-charcoal-950 transition-colors duration-300">
+      <Navbar />
+      <main className="flex-1">
+        <Suspense fallback={<div className="h-screen flex items-center justify-center bg-slate-50 dark:bg-charcoal-950"><div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div></div>}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/browse" element={<Browse />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/watch/:episodeId" element={<Watch />} />
+            <Route path="/series/:id" element={<SeriesDetail />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+            
+            {/* Watch Together Routes */}
+            <Route path="/watch-together" element={<WatchTogetherHub />} />
+            <Route path="/watch-together/new" element={<PrivateRoute><WatchTogetherCreate /></PrivateRoute>} />
+            <Route path="/watch-together/:id" element={<WatchRoomPage />} />
+
+            {/* Admin Routes (Lazy Loaded) */}
+            <Route path="/admin" element={<PrivateRoute adminOnly><AdminLayout /></PrivateRoute>}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="series" element={<AdminSeriesIndex />} />
+              <Route path="series/:id" element={<AdminSeriesNew />} />
+              <Route path="season/:id" element={<AdminSeasonNew />} />
+              <Route path="episode/:id" element={<AdminEpisodeNew />} />
+              <Route path="uploads" element={<AdminMedia />} />
+              <Route path="users" element={<AdminUsers />} />
+            </Route>
+
+            {/* 404 Route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <>
       <ScrollToTop />
-      <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route element={<Layout />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/browse" element={<Browse />} />
-        <Route path="/search" element={<SearchPage />} />
-        <Route path="/series/:id" element={<SeriesDetail />} />
-        <Route path="/watch/:episodeId" element={<Watch />} />
-        <Route path="/watch-together" element={<WatchTogetherHub />} />
-        <Route path="/watch-together/new" element={<PrivateRoute><WatchTogetherCreate /></PrivateRoute>} />
-        <Route path="/watch-together/:id" element={<WatchRoomPage />} />
-        <Route
-          path="/profile"
-          element={
-            <PrivateRoute>
-              <Profile />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <PrivateRoute admin>
-              <AdminLayout />
-            </PrivateRoute>
-          }
-        >
-          <Route index element={<AdminDashboard />} />
-          <Route path="users" element={<AdminUsers />} />
-          <Route path="media" element={<AdminMedia />} />
-          <Route path="series" element={<AdminSeriesIndex />} />
-          <Route path="series/drafts" element={<AdminSeriesDrafts />} />
-          <Route path="series/new" element={<AdminSeriesNew />} />
-          <Route path="guide" element={<AdminGuide />} />
-          <Route path="seasons" element={<AdminSeasonNew />} />
-          <Route path="episodes" element={<AdminEpisodeNew />} />
-        </Route>
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      <AppContent />
     </>
   );
 }

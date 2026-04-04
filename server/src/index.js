@@ -1,20 +1,21 @@
+const env = require('./config/env');
 const http = require('http');
 const app = require('./app');
 const { connectDB } = require('./config/db');
 const { initSocket } = require('./socket');
 
-const PORT = process.env.PORT || 5000;
+const PORT = env.port;
 
 async function main() {
-  if (!process.env.MONGODB_URI) {
+  if (!env.mongoUri) {
     console.error('Missing MONGODB_URI');
     process.exit(1);
   }
-  if (!process.env.JWT_SECRET) {
+  if (!env.jwtSecret) {
     console.error('Missing JWT_SECRET');
     process.exit(1);
   }
-  await connectDB(process.env.MONGODB_URI);
+  await connectDB(env.mongoUri);
   const server = http.createServer(app);
   initSocket(server, app);
   server.listen(PORT, () => {

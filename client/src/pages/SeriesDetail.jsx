@@ -13,6 +13,7 @@ export default function SeriesDetail() {
   const [bookmarked, setBookmarked] = useState(false);
   const [activeSeasonId, setActiveSeasonId] = useState(null);
   const [similarSeries, setSimilarSeries] = useState([]);
+  const [togglingBookmark, setTogglingBookmark] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,23 +41,28 @@ export default function SeriesDetail() {
 
   useEffect(() => {
     if (!user || !id) return;
+    // Fixed: use the new /check endpoint instead of fetching all bookmarks (issue 3.4)
     api
-      .get('/bookmarks')
+      .get(`/bookmarks/${id}/check`)
       .then((r) => {
-        const ids = (r.data.items || []).map((s) => String(s._id));
-        setBookmarked(ids.includes(String(id)));
+        setBookmarked(r.data.bookmarked);
       })
       .catch(() => {});
   }, [user, id]);
 
   const toggleBookmark = async () => {
-    if (!user) return;
-    if (bookmarked) {
-      await api.delete(`/bookmarks/${id}`);
-      setBookmarked(false);
-    } else {
-      await api.post(`/bookmarks/${id}`);
-      setBookmarked(true);
+    if (!user || togglingBookmark) return;
+    setTogglingBookmark(true);
+    try {
+      if (bookmarked) {
+        await api.delete(`/bookmarks/${id}`);
+        setBookmarked(false);
+      } else {
+        await api.post(`/bookmarks/${id}`);
+        setBookmarked(true);
+      }
+    } finally {
+      setTogglingBookmark(false);
     }
   };
 
@@ -105,8 +111,15 @@ export default function SeriesDetail() {
           {user && (
             <button
               type="button"
+              disabled={togglingBookmark}
               onClick={toggleBookmark}
-              className="px-4 py-2 rounded-lg bg-teal-100 border border-teal-200 text-teal-800 text-sm hover:bg-teal-200/80 dark:bg-teal-600/20 dark:border-teal-500/40 dark:text-teal-300 dark:hover:bg-teal-600/30"
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                togglingBookmark ? 'opacity-60 cursor-not-allowed' : ''
+              } ${
+                bookmarked 
+                ? 'bg-rose-100 border border-rose-200 text-rose-800 hover:bg-rose-200 dark:bg-rose-500/20 dark:border-rose-500/40 dark:text-rose-300'
+                : 'bg-teal-100 border border-teal-200 text-teal-800 hover:bg-teal-200 dark:bg-teal-600/20 dark:border-teal-500/40 dark:text-teal-300'
+              }`}
             >
               {bookmarked ? 'Saved to watchlist' : 'Add to watchlist'}
             </button>

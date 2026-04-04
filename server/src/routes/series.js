@@ -4,11 +4,23 @@ const Series = require('../models/Series');
 const Season = require('../models/Season');
 const Episode = require('../models/Episode');
 const { authenticate, optionalAuth, requireRole } = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/asyncHandler');
 const { listEpisodesForSeries } = require('../helpers/content');
 const { validatePublishedSeriesDoc } = require('../helpers/seriesPublishValidation');
 const { findSimilarSeries } = require('../algorithms');
 
 const router = express.Router();
+
+/** Escape special regex characters to prevent ReDoS (issue 2.1) */
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Whitelist of fields allowed in series PATCH to prevent mass assignment (issue 1.5) */
+const SERIES_ALLOWED_FIELDS = [
+  'title', 'description', 'genres', 'tags', 'releaseYear', 'posterPath',
+  'videoFile', 'thumbnailPath', 'subtitleFile', 'type', 'status', 'catalogStatus',
+];
 
 router.get(
   '/',
@@ -23,13 +35,14 @@ router.get(
     query('catalogStatus').optional().isIn(['draft', 'published']),
     query('type').optional().isIn(['series', 'movie']),
   ],
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 20;
     const filter = {};
-    if (req.query.genre) filter.genres = { $regex: new RegExp(`^${req.query.genre}$`, 'i') };
+    // Fixed: escape user input before using in RegExp (issue 2.1)
+    if (req.query.genre) filter.genres = { $regex: new RegExp(`^${escapeRegex(req.query.genre)}$`, 'i') };
     if (req.query.year) filter.releaseYear = Number(req.query.year);
     if (req.query.type) filter.type = req.query.type;
     let sort = { createdAt: -1 };
@@ -49,30 +62,28 @@ router.get(
       Series.countDocuments(merged),
     ]);
     res.json({ items, total, page, limit });
-  }
+  })
 );
 
 // ── TF-IDF Cosine Similarity: Find similar series ──
-router.get('/:id/similar', optionalAuth, async (req, res) => {
+router.get('/:id/similar', optionalAuth, asyncHandler(async (req, res) => {
   const target = await Series.findById(req.params.id).lean();
   if (!target) return res.status(404).json({ message: 'Not found' });
 
   const allSeries = await Series.find({ catalogStatus: { $ne: 'draft' } }).lean();
   const results = findSimilarSeries(target._id, allSeries, 10);
 
-  // Only return matches above 10% cosine similarity
   const MIN_SIMILARITY = 0.10;
-
-  const seriesMap = Object.fromEntries(allSeries.map(s => [s._id.toString(), s]));
+  const seriesMap = Object.fromEntries(allSeries.map((s) => [s._id.toString(), s]));
   const items = results
-    .filter(r => r.similarity >= MIN_SIMILARITY && seriesMap[r.seriesId])
+    .filter((r) => r.similarity >= MIN_SIMILARITY && seriesMap[r.seriesId])
     .slice(0, 6)
-    .map(r => ({ series: seriesMap[r.seriesId], similarity: r.similarity }));
+    .map((r) => ({ series: seriesMap[r.seriesId], similarity: r.similarity }));
 
   res.json({ items });
-});
+}));
 
-router.get('/:id', optionalAuth, async (req, res) => {
+router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
   const series = await Series.findById(req.params.id).lean();
   if (!series) return res.status(404).json({ message: 'Not found' });
   if (series.catalogStatus === 'draft' && req.user?.role !== 'admin') {
@@ -80,7 +91,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
   }
   const tree = await listEpisodesForSeries(series._id);
   res.json({ series, seasons: tree });
-});
+}));
 
 router.post(
   '/',
@@ -99,7 +110,7 @@ router.post(
     body('subtitleFile').optional().isString(),
     body('catalogStatus').optional().isIn(['draft', 'published']),
   ],
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const createPayload = { ...req.body, createdBy: req.user._id };
@@ -110,39 +121,46 @@ router.post(
     }
     const s = await Series.create(createPayload);
     res.status(201).json({ series: s });
-  }
+  })
 );
 
 router.patch(
   '/:id',
   authenticate,
   requireRole('admin'),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const doc = await Series.findById(req.params.id);
     if (!doc) return res.status(404).json({ message: 'Not found' });
+
+    // Fixed: whitelist allowed fields to prevent mass assignment (issue 1.5)
+    const updates = {};
+    for (const key of SERIES_ALLOWED_FIELDS) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+
     const merged = {
-      title: req.body.title !== undefined ? req.body.title : doc.title,
-      description: req.body.description !== undefined ? req.body.description : doc.description,
-      genres: req.body.genres !== undefined ? req.body.genres : doc.genres,
-      posterPath: req.body.posterPath !== undefined ? req.body.posterPath : doc.posterPath,
-      videoFile: req.body.videoFile !== undefined ? req.body.videoFile : doc.videoFile,
-      thumbnailPath: req.body.thumbnailPath !== undefined ? req.body.thumbnailPath : doc.thumbnailPath,
-      subtitleFile: req.body.subtitleFile !== undefined ? req.body.subtitleFile : doc.subtitleFile,
-      releaseYear: req.body.releaseYear !== undefined ? req.body.releaseYear : doc.releaseYear,
-      catalogStatus: req.body.catalogStatus !== undefined ? req.body.catalogStatus : doc.catalogStatus,
+      title: updates.title !== undefined ? updates.title : doc.title,
+      description: updates.description !== undefined ? updates.description : doc.description,
+      genres: updates.genres !== undefined ? updates.genres : doc.genres,
+      posterPath: updates.posterPath !== undefined ? updates.posterPath : doc.posterPath,
+      videoFile: updates.videoFile !== undefined ? updates.videoFile : doc.videoFile,
+      thumbnailPath: updates.thumbnailPath !== undefined ? updates.thumbnailPath : doc.thumbnailPath,
+      subtitleFile: updates.subtitleFile !== undefined ? updates.subtitleFile : doc.subtitleFile,
+      releaseYear: updates.releaseYear !== undefined ? updates.releaseYear : doc.releaseYear,
+      catalogStatus: updates.catalogStatus !== undefined ? updates.catalogStatus : doc.catalogStatus,
     };
     const finalStatus = merged.catalogStatus ?? doc.catalogStatus ?? 'published';
     if (finalStatus === 'published') {
       const err = validatePublishedSeriesDoc(merged);
       if (err) return res.status(400).json({ message: err });
     }
-    Object.assign(doc, req.body);
+    Object.assign(doc, updates);
     await doc.save();
     res.json({ series: doc });
-  }
+  })
 );
 
-router.delete('/:id', authenticate, requireRole('admin'), async (req, res) => {
+router.delete('/:id', authenticate, requireRole('admin'), asyncHandler(async (req, res) => {
   const s = await Series.findByIdAndDelete(req.params.id);
   if (!s) return res.status(404).json({ message: 'Not found' });
   const seasons = await Season.find({ seriesId: s._id });
@@ -151,14 +169,14 @@ router.delete('/:id', authenticate, requireRole('admin'), async (req, res) => {
   }
   await Season.deleteMany({ seriesId: s._id });
   res.json({ message: 'Deleted' });
-});
+}));
 
 router.post(
   '/:id/seasons',
   authenticate,
   requireRole('admin'),
   [body('number').isInt({ min: 1 }), body('title').optional().isString()],
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const series = await Series.findById(req.params.id);
@@ -174,7 +192,7 @@ router.post(
       if (e.code === 11000) return res.status(409).json({ message: 'Season number exists' });
       throw e;
     }
-  }
+  })
 );
 
 module.exports = router;

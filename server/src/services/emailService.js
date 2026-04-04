@@ -1,31 +1,31 @@
 const nodemailer = require('nodemailer');
+const env = require('../config/env');
 
 let transporter;
 
 function getTransporter() {
   if (transporter) return transporter;
-  const { EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS } = process.env;
-  if (!EMAIL_HOST || !EMAIL_USER) {
+  if (!env.emailHost || !env.emailUser) {
     return null;
   }
   transporter = nodemailer.createTransport({
-    host: EMAIL_HOST,
-    port: Number(EMAIL_PORT) || 587,
+    host: env.emailHost,
+    port: env.emailPort,
     secure: false,
-    auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+    auth: { user: env.emailUser, pass: env.emailPass },
   });
   return transporter;
 }
 
 async function sendVerificationEmail(to, token) {
   const t = getTransporter();
-  const url = `${process.env.CLIENT_URL}/verify-email?token=${token}`;
+  const url = `${env.clientUrl}/verify-email?token=${token}`;
   if (!t) {
     console.info('[email stub] verify:', to, url);
     return;
   }
   await t.sendMail({
-    from: process.env.EMAIL_FROM || 'noreply@streamvault.local',
+    from: env.emailFrom,
     to,
     subject: 'Verify your email',
     text: `Verify: ${url}`,
@@ -35,13 +35,13 @@ async function sendVerificationEmail(to, token) {
 
 async function sendPasswordResetEmail(to, token) {
   const t = getTransporter();
-  const url = `${process.env.CLIENT_URL}/reset-password?token=${token}`;
+  const url = `${env.clientUrl}/reset-password?token=${token}`;
   if (!t) {
     console.info('[email stub] reset:', to, url);
     return;
   }
   await t.sendMail({
-    from: process.env.EMAIL_FROM || 'noreply@streamvault.local',
+    from: env.emailFrom,
     to,
     subject: 'Password reset',
     text: `Reset: ${url}`,

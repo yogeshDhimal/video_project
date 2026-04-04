@@ -47,8 +47,11 @@ export default function Home() {
   const [recent, setRecent] = useState([]);
   const [rec, setRec] = useState([]);
   const [cont, setCont] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [publicLoading, setPublicLoading] = useState(true);
+  const [userLoading, setUserLoading] = useState(false);
 
+  // Fixed: split into two effects so public data isn't refetched on user change (issue 3.6)
+  // Effect 1: Public data (trending + recent) — runs once
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -58,25 +61,40 @@ export default function Home() {
           setTrending(t.data.items || []);
           setRecent(r.data.items || []);
         }
-        if (user) {
-          const [recRes, cRes] = await Promise.all([
-            api.get('/recommendations').catch(() => ({ data: { items: [] } })),
-            api.get('/watch-history/continue').catch(() => ({ data: { items: [] } })),
-          ]);
-          if (!cancelled) {
-            setRec(recRes.data.items || []);
-            setCont(cRes.data.items || []);
-          }
-        }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setPublicLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
+  }, []);
+
+  // Effect 2: User-specific data (recommendations + continue watching)
+  useEffect(() => {
+    if (!user) {
+      setRec([]);
+      setCont([]);
+      return;
+    }
+    let cancelled = false;
+    setUserLoading(true);
+    (async () => {
+      try {
+        const [recRes, cRes] = await Promise.all([
+          api.get('/recommendations').catch(() => ({ data: { items: [] } })),
+          api.get('/watch-history/continue').catch(() => ({ data: { items: [] } })),
+        ]);
+        if (!cancelled) {
+          setRec(recRes.data.items || []);
+          setCont(cRes.data.items || []);
+        }
+      } finally {
+        if (!cancelled) setUserLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [user]);
 
+  const loading = publicLoading;
   const recentValid = (recent || []).filter((row) => row.series && row.episode);
 
   return (
@@ -135,9 +153,9 @@ export default function Home() {
             episode: x.episode,
             series: x.series,
           }))}
-          loading={loading}
+          loading={userLoading}
           emptyTitle="No shows in progress"
-          emptyDescription="Start watching something — we’ll surface it here when you’re partway through an episode."
+          emptyDescription="Start watching something — we'll surface it here when you're partway through an episode."
           emptyIcon="▶"
         />
       )}
@@ -159,7 +177,7 @@ export default function Home() {
           items={rec.map((x) => ({ episode: x.episode, series: x.series, mathProof: x.mathProof }))}
           loading={false}
           emptyTitle="No recommendations yet"
-          emptyDescription="Watch a few episodes and we’ll tune suggestions to your taste."
+          emptyDescription="Watch a few episodes and we'll tune suggestions to your taste."
           emptyIcon="💡"
         />
       )}
@@ -171,7 +189,7 @@ export default function Home() {
         ) : recentValid.length === 0 ? (
           <EmptyState
             title="No recently added content"
-            description="There aren’t any new episodes to show yet. Add series and episodes from the admin workflow, then they’ll land here automatically."
+            description="There aren't any new episodes to show yet. Add series and episodes from the admin workflow, then they'll land here automatically."
             icon="🎬"
             actionLabel="Browse library"
             actionTo="/browse"

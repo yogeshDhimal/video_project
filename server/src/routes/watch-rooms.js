@@ -3,11 +3,12 @@ const { body, validationResult } = require('express-validator');
 const WatchRoom = require('../models/WatchRoom');
 const Episode = require('../models/Episode');
 const { authenticate, optionalAuth } = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/asyncHandler');
 
 const router = express.Router();
 
-// Get active and upcoming scheduled rooms
-router.get('/', optionalAuth, async (req, res) => {
+// Fixed: added limit() to prevent unbounded result sets (issue 2.8)
+router.get('/', optionalAuth, asyncHandler(async (req, res) => {
   const active = await WatchRoom.find({ status: 'active' })
     .populate('hostId', 'username avatar')
     .populate({
@@ -15,6 +16,7 @@ router.get('/', optionalAuth, async (req, res) => {
       populate: { path: 'seasonId', populate: { path: 'seriesId', select: 'title' } }
     })
     .sort({ createdAt: -1 })
+    .limit(50)
     .lean();
 
   const scheduled = await WatchRoom.find({ status: 'scheduled', scheduledStartTime: { $ne: null } })
@@ -24,25 +26,25 @@ router.get('/', optionalAuth, async (req, res) => {
       populate: { path: 'seasonId', populate: { path: 'seriesId', select: 'title' } }
     })
     .sort({ scheduledStartTime: 1 })
+    .limit(50)
     .lean();
 
   res.json({ active, scheduled });
-});
+}));
 
-// Get user's own rooms
-router.get('/me', authenticate, async (req, res) => {
+router.get('/me', authenticate, asyncHandler(async (req, res) => {
   const rooms = await WatchRoom.find({ hostId: req.user._id })
     .populate({
       path: 'episodes',
       populate: { path: 'seasonId', populate: { path: 'seriesId', select: 'title' } }
     })
     .sort({ createdAt: -1 })
+    .limit(50)
     .lean();
   res.json({ rooms });
-});
+}));
 
-// Get specific room
-router.get('/:id', optionalAuth, async (req, res) => {
+router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
   const room = await WatchRoom.findById(req.params.id)
     .populate('hostId', 'username avatar')
     .populate({
@@ -52,9 +54,8 @@ router.get('/:id', optionalAuth, async (req, res) => {
     .lean();
   if (!room) return res.status(404).json({ message: 'Room not found' });
   res.json({ room });
-});
+}));
 
-// Create room
 router.post(
   '/',
   authenticate,
@@ -63,7 +64,7 @@ router.post(
     body('episodes').isArray({ min: 1, max: 10 }),
     body('scheduledStartTime').optional({ nullable: true }).isISO8601(),
   ],
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
@@ -89,11 +90,10 @@ router.post(
     });
 
     res.status(201).json({ room });
-  }
+  })
 );
 
-// Delete room manually
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', authenticate, asyncHandler(async (req, res) => {
   const room = await WatchRoom.findById(req.params.id);
   if (!room) return res.status(404).json({ message: 'Not found' });
   if (room.hostId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
@@ -101,6 +101,6 @@ router.delete('/:id', authenticate, async (req, res) => {
   }
   await WatchRoom.deleteOne({ _id: room._id });
   res.json({ message: 'Deleted' });
-});
+}));
 
 module.exports = router;

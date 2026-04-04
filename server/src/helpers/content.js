@@ -11,14 +11,28 @@ async function getEpisodeChain(episodeId) {
   return { episode: ep, season, series };
 }
 
+/**
+ * Fixed N+1 query: fetches ALL episodes for a series in a single query
+ * instead of one query per season.
+ */
 async function listEpisodesForSeries(seriesId) {
-  const seasons = await Season.find({ seriesId }).sort({ number: 1 });
-  const out = [];
-  for (const s of seasons) {
-    const eps = await Episode.find({ seasonId: s._id }).sort({ number: 1 });
-    out.push({ season: s, episodes: eps });
-  }
-  return out;
+  const seasons = await Season.find({ seriesId }).sort({ number: 1 }).lean();
+  const seasonIds = seasons.map((s) => s._id);
+  const allEps = await Episode.find({ seasonId: { $in: seasonIds } })
+    .sort({ number: 1 })
+    .lean();
+
+  const epMap = {};
+  allEps.forEach((ep) => {
+    const sid = ep.seasonId.toString();
+    if (!epMap[sid]) epMap[sid] = [];
+    epMap[sid].push(ep);
+  });
+
+  return seasons.map((s) => ({
+    season: s,
+    episodes: epMap[s._id.toString()] || [],
+  }));
 }
 
 async function getNextEpisode(episodeId) {
@@ -29,9 +43,7 @@ async function getNextEpisode(episodeId) {
     number: episode.number + 1,
   });
   if (nextSame) {
-    const s2 = season;
-    const ser = series;
-    return { episode: nextSame, season: s2, series: ser };
+    return { episode: nextSame, season, series };
   }
   const nextSeason = await Season.findOne({ seriesId: series._id, number: season.number + 1 });
   if (!nextSeason) return null;

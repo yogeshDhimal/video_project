@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import api, { setAuthToken } from '../api/client';
 
 const AuthContext = createContext(null);
@@ -21,24 +21,25 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (email, password) => {
+  // Fixed: wrap in useCallback to prevent stale closures & unnecessary re-renders (issue 3.1)
+  const login = useCallback(async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
     setAuthToken(data.token);
     setUser(data.user);
     return data;
-  };
+  }, []);
 
-  const register = async (payload) => {
+  const register = useCallback(async (payload) => {
     const { data } = await api.post('/auth/register', payload);
     setAuthToken(data.token);
     setUser(data.user);
     return data;
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setAuthToken(null);
     setUser(null);
-  };
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -50,7 +51,7 @@ export function AuthProvider({ children }) {
       setUser,
       isAdmin: user?.role === 'admin',
     }),
-    [user, loading]
+    [user, loading, login, register, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
