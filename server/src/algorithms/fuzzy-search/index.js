@@ -129,15 +129,31 @@ function createFuzzyIndex(items, keys, options = {}) {
               break;
             }
 
-            // Priority 2: Word-level fuzzy matching
+            // Priority 2: Aggregated word-level fuzzy matching
+            // Find the best match for *each* query word, and average the distances.
+            // This prevents a single random matched word from overpowering the whole result.
+            let sumDist = 0;
             const targetWords = str.split(/\s+/);
+            
             for (const qw of queryWords) {
+              let bestWordDist = 1; // 1 represents a complete mismatch
               for (const tw of targetWords) {
+                // Exact substring counts as a perfect word match
+                if (tw.includes(qw) || qw.includes(tw)) {
+                  bestWordDist = 0;
+                  break;
+                }
                 const dist = normalizedDistance(qw, tw);
-                if (dist < bestScore) {
-                  bestScore = dist;
+                if (dist < bestWordDist) {
+                  bestWordDist = dist;
                 }
               }
+              sumDist += bestWordDist;
+            }
+            
+            const avgDist = sumDist / queryWords.length;
+            if (avgDist < bestScore) {
+              bestScore = avgDist;
             }
           }
           if (isExact) break;

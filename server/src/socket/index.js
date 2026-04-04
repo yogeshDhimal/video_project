@@ -9,6 +9,14 @@ function initSocket(httpServer, app) {
   });
 
   io.on('connection', (socket) => {
+    socket.on('disconnect', () => {
+      if (socket.data && socket.data.watchRoomId) {
+        const roomId = socket.data.watchRoomId;
+        const count = io.sockets.adapter.rooms.get(`wr:${roomId}`)?.size || 0;
+        io.to(`wr:${roomId}`).emit('watch_room_viewers', { count });
+      }
+    });
+
     socket.on('join_episode', (episodeId) => {
       socket.join(`ep:${episodeId}`);
       io.to(`ep:${episodeId}`).emit('presence', { count: io.sockets.adapter.rooms.get(`ep:${episodeId}`)?.size || 0 });
@@ -34,8 +42,16 @@ function initSocket(httpServer, app) {
     });
 
     // --- Watch Room Logic ---
+    const updateWatchRoomViewers = (roomId) => {
+      const count = io.sockets.adapter.rooms.get(`wr:${roomId}`)?.size || 0;
+      io.to(`wr:${roomId}`).emit('watch_room_viewers', { count });
+    };
+
     socket.on('join_watch_room', async (roomId) => {
       socket.join(`wr:${roomId}`);
+      socket.data = { ...socket.data, watchRoomId: roomId };
+      updateWatchRoomViewers(roomId);
+
       const r = await WatchRoom.findById(roomId).lean();
       if (r) {
         let currentTime = r.currentVideoTime;
@@ -48,11 +64,22 @@ function initSocket(httpServer, app) {
 
     socket.on('leave_watch_room', (roomId) => {
       socket.leave(`wr:${roomId}`);
+      updateWatchRoomViewers(roomId);
+      if (socket.data?.watchRoomId === roomId) {
+        socket.data.watchRoomId = null;
+      }
     });
 
     socket.on('watch_room_control', async ({ roomId, action, payload, userId }) => {
       const r = await WatchRoom.findById(roomId);
       if (!r || r.hostId.toString() !== userId) return; // Only host can emit control
+      
+      if (action === 'close_room') {
+        r.status = 'finished';
+        await r.save();
+        io.to(`wr:${roomId}`).emit('watch_room_sync', { action: 'close_room' });
+        return;
+      }
       
       if (action === 'play') {
         r.status = 'active'; // Force transition if scheduled
@@ -84,11 +111,14 @@ function initSocket(httpServer, app) {
     });
   });
 
-  // Scheduled Rooms Auto-Start Ticker (Offline-first source of truth)
+  // Scheduled Rooms Auto-Start Ticker & Garbage Collection
   setInterval(async () => {
     try {
       const now = new Date();
-      const readyRooms = await WatchRoom.find({ status: 'scheduled', scheduledStartTime: { $lte: now } });
+      const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+
+      // 1. Auto-Start scheduled rooms whose time has come
+      const readyRooms = await WatchRoom.find({ status: 'scheduled', scheduledStartTime: { $lte: now, $gt: sixHoursAgo } });
       for (const r of readyRooms) {
         r.status = 'active';
         r.isPlaying = true;
@@ -97,6 +127,18 @@ function initSocket(httpServer, app) {
         await r.save();
         io.to(`wr:${r._id}`).emit('watch_room_sync', { action: 'room_started', payload: {}, room: r });
       }
+
+      // 2. Garbage Collection: Mark abandoned Scheduled rooms as finished
+      await WatchRoom.updateMany(
+        { status: 'scheduled', scheduledStartTime: { $lte: sixHoursAgo } },
+        { status: 'finished' }
+      );
+
+      // 3. Garbage Collection: Mark stagnant Active rooms as finished
+      await WatchRoom.updateMany(
+        { status: 'active', playbackUpdatedAt: { $lte: sixHoursAgo } },
+        { status: 'finished' }
+      );
     } catch (e) { /* ignore */ }
   }, 5000);
 

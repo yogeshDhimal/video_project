@@ -11,6 +11,7 @@ const { norm } = require('./shared/normalization');
 const { calculateVideoRange } = require('./video-streaming');
 const { calculateHybridScore } = require('./hybrid-recommendation');
 const { findSimilarSeries, cosineSimilarity, tokenize, computeTF, computeIDF, buildTFIDFVector } = require('./content-similarity');
+const { buildRatingMatrix, getCollaborativeRecommendations, getSVDRecommendations } = require('./collaborative-filtering');
 
 module.exports = {
   RECOMMENDATION_WEIGHTS,
@@ -29,4 +30,7 @@ module.exports = {
   computeTF,
   computeIDF,
   buildTFIDFVector,
+  buildRatingMatrix,
+  getCollaborativeRecommendations,
+  getSVDRecommendations,
 };

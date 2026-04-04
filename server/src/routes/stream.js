@@ -50,7 +50,7 @@ router.get('/subtitle/:episodeId/:fileName', streamLimiter, authenticate, async 
   fs.createReadStream(abs).pipe(res);
 });
 
-router.get('/thumbnail/:episodeId', streamLimiter, authenticate, async (req, res) => {
+router.get('/thumbnail/:episodeId', streamLimiter, async (req, res) => {
   const ep = await Episode.findById(req.params.episodeId);
   if (!ep || !ep.thumbnailPath) return res.status(404).end();
   if (!(await assertEpisodePlayable(ep, req.user))) return res.status(404).end();
@@ -90,7 +90,7 @@ router.get('/series/:seriesId/subtitle/:fileName', streamLimiter, authenticate, 
   fs.createReadStream(abs).pipe(res);
 });
 
-router.get('/series/:seriesId/thumbnail', streamLimiter, authenticate, async (req, res) => {
+router.get('/series/:seriesId/thumbnail', streamLimiter, async (req, res) => {
   const s = await Series.findById(req.params.seriesId);
   if (!s || !s.thumbnailPath) return res.status(404).end();
   if (!(await assertSeriesPlayable(s, req.user))) return res.status(404).end();

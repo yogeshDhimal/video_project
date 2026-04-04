@@ -2,44 +2,30 @@ import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
-    <footer className="relative border-t border-slate-200/80 dark:border-white/[0.06] bg-white dark:bg-charcoal-900 transition-colors pt-12 pb-8 px-4 sm:px-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
-          <div className="md:col-span-2">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <span className="font-display font-bold text-xl text-slate-900 dark:text-white tracking-tight">
-                StreamVault
-              </span>
-            </Link>
-            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed mb-6">
-              A premium local-first video streaming platform designed with a modern aesthetic, personalized machine-learning algorithms, and an ultra-fast backend.
-            </p>
+    <footer className="border-t border-slate-200/80 dark:border-white/[0.06] bg-slate-50 dark:bg-charcoal-900 transition-colors py-10 mt-16">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-8 flex flex-col items-center text-center">
+        <Link to="/" className="inline-flex items-center gap-3 mb-6 group">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20 group-hover:scale-105 transition-transform">
+            <span className="text-white font-black text-xl tracking-tighter">SV</span>
           </div>
-          
-          <div>
-            <h3 className="text-slate-900 dark:text-white font-semibold text-sm tracking-widest uppercase mb-4">Platform</h3>
-            <ul className="space-y-3 text-sm text-slate-500 dark:text-slate-400">
-              <li><Link to="/browse" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">Browse Catalog</Link></li>
-              <li><Link to="/search" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">Typo-Tolerant Search</Link></li>
-              <li><Link to="/" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">Trending Now</Link></li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-slate-900 dark:text-white font-semibold text-sm tracking-widest uppercase mb-4">Legal & About</h3>
-            <ul className="space-y-3 text-sm text-slate-500 dark:text-slate-400">
-              <li><span className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors cursor-pointer">Privacy Policy</span></li>
-              <li><span className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors cursor-pointer">Terms of Service</span></li>
-              <li><span className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors cursor-pointer">Project Info</span></li>
-            </ul>
-          </div>
+          <span className="font-display font-black text-2xl text-slate-900 dark:text-white tracking-tight">
+            StreamVault
+          </span>
+        </Link>
+        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed mb-8">
+          StreamVault does not store any files on our server, we only linked to the media which is hosted on 3rd party services.
+        </p>
+        
+        <div className="flex flex-wrap justify-center gap-6 text-sm font-semibold text-slate-600 dark:text-slate-300 mb-8">
+          <Link to="/browse" className="hover:text-teal-500 transition-colors">Catalog</Link>
+          <Link to="/search" className="hover:text-teal-500 transition-colors">Search</Link>
+          <span className="hover:text-teal-500 transition-colors cursor-pointer">Terms of Service</span>
+          <span className="hover:text-teal-500 transition-colors cursor-pointer">Contact</span>
         </div>
 
-        <div className="pt-8 border-t border-slate-200 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-slate-500 dark:text-slate-500">
-            © {new Date().getFullYear()} StreamVault. All rights reserved.
-          </p>
-        </div>
+        <p className="text-sm text-slate-400 dark:text-slate-600">
+          © {new Date().getFullYear()} StreamVault. All rights reserved.
+        </p>
       </div>
     </footer>
   );

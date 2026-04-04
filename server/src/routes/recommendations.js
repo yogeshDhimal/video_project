@@ -7,7 +7,7 @@ const Season = require('../models/Season');
 const Series = require('../models/Series');
 const Comment = require('../models/Comment');
 const { authenticate } = require('../middleware/auth');
-const { calculateHybridScore, norm } = require('../algorithms');
+const { calculateHybridScore, norm, getCollaborativeRecommendations, buildRatingMatrix, getSVDRecommendations } = require('../algorithms');
 
 const router = express.Router();
 
@@ -77,6 +77,15 @@ router.get('/', authenticate, async (req, res) => {
 
   const candidateIds = candidates.map((c) => c._id);
   
+  // Predict using User-to-User Pearson Correlation
+  const cfRecs = await getCollaborativeRecommendations(req.user._id, candidateIds, 100);
+  const cfScores = Object.fromEntries(cfRecs.map(r => [r.episodeId.toString(), r.predictedRating]));
+
+  // Predict using Latent Matrix Factorization (SVD via SGD)
+  const matrixData = await buildRatingMatrix();
+  const svdRecs = getSVDRecommendations(req.user._id, candidateIds, matrixData);
+  const svdScores = Object.fromEntries(svdRecs.map(r => [r.episodeId, r]));
+
   // Aggregate comment counts for engagement score
   const commentCountsRaw = await Comment.aggregate([
     { $match: { episodeId: { $in: candidateIds } } },
@@ -137,7 +146,22 @@ router.get('/', authenticate, async (req, res) => {
     const rawEngagement = (ep.likes || 0) + comments * 2;
     const normalizedEngagement = norm(rawEngagement, maxEngagement);
 
-    const score = calculateHybridScore({
+    // 6. Collaborative Pearson Core
+    // Normalize math prediction (3.0 - 5.0) to (0.0 - 1.0)
+    let pearsonBoost = 0;
+    const pred = cfScores[ep._id.toString()];
+    if (pred && pred > 3.0) {
+      pearsonBoost = norm(pred - 3.0, 2.0);
+    }
+
+    // 7. SVD Matrix Factorization
+    let svdBoost = 0;
+    const svdData = svdScores[ep._id.toString()];
+    if (svdData && svdData.predictedRating > 3.0) {
+      svdBoost = norm(svdData.predictedRating - 3.0, 2.0);
+    }
+
+    let score = calculateHybridScore({
       normalizedGenreMatch,
       watchCompletion,
       normalizedLikes,
@@ -145,8 +169,22 @@ router.get('/', authenticate, async (req, res) => {
       recencyBoost,
       normalizedEngagement,
     });
+    
+    // Hard mathematically proven predictions get massive boosts over heuristics
+    score += (pearsonBoost * 5) + (svdBoost * 7);
 
-    return { episode: ep, series: ser, season: se, score };
+    return { 
+      episode: ep, 
+      series: ser, 
+      season: se, 
+      score, 
+      pearsonPredicted: pred || null,
+      mathProof: svdData ? {
+        uVector: svdData.uVector,
+        vVector: svdData.vVector,
+        dotProduct: svdData.predictedRating
+      } : null
+    };
   });
 
   // Diversity Engine: Avoid consecutive same-genre repetition

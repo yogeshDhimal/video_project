@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -15,6 +15,9 @@ export default function WatchRoomPage() {
   const [msg, setMsg] = useState('');
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [viewers, setViewers] = useState(0);
+  const [roomClosed, setRoomClosed] = useState(false);
+  const [closingCountdown, setClosingCountdown] = useState(null);
   const socketRef = useRef(null);
 
   // Real-time player state (server authoritative)
@@ -55,6 +58,11 @@ export default function WatchRoomPage() {
 
     // Override state from socket when host triggers events
     socket.on('watch_room_sync', ({ action, payload }) => {
+      if (action === 'close_room') {
+        setRoomClosed(true);
+        setIsPlaying(false);
+        return;
+      }
       if (action === 'play' || action === 'room_started') {
         setIsPlaying(true);
         if (payload?.time !== undefined) setServerTime(payload.time);
@@ -76,6 +84,10 @@ export default function WatchRoomPage() {
       setChat(prev => [...prev.slice(-49), message]);
     });
 
+    socket.on('watch_room_viewers', ({ count }) => {
+      setViewers(count);
+    });
+
     return () => {
       socket.emit('leave_watch_room', id);
       socket.disconnect();
@@ -91,6 +103,22 @@ export default function WatchRoomPage() {
     }, 1000);
     return () => clearInterval(interval);
   }, [isPlaying]);
+
+  // Host auto-close countdown timer
+  useEffect(() => {
+    if (closingCountdown === null) return;
+    if (closingCountdown <= 0) {
+      if (socketRef.current) {
+        socketRef.current.emit('watch_room_control', { roomId: id, userId: user._id, action: 'close_room' });
+      }
+      setClosingCountdown(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setClosingCountdown(prev => prev - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [closingCountdown, id, user]);
 
   const sendChat = (e) => {
     e.preventDefault();
@@ -111,6 +139,7 @@ export default function WatchRoomPage() {
         roomId: id, userId: user._id,
         action: 'pause', payload: { time: serverTime }
       });
+      setClosingCountdown(30);
     }
   };
 
@@ -142,6 +171,23 @@ export default function WatchRoomPage() {
   const isHost = !!(user && room.hostId && (room.hostId._id?.toString() === user._id?.toString() || room.hostId?.toString() === user._id?.toString()));
   const currentEpisode = room.episodes[currentEpIdx] || null; // This is a full populated episode object
 
+  if (roomClosed) {
+    return (
+      <div className="max-w-[1400px] mx-auto px-4 py-32 text-center flex flex-col items-center justify-center animate-fadeUp">
+        <div className="w-20 h-20 bg-rose-100 dark:bg-rose-900/30 rounded-full flex items-center justify-center mb-6">
+          <span className="text-3xl">👋</span>
+        </div>
+        <h1 className="text-3xl font-display font-bold text-slate-900 dark:text-white mb-3">Room Ended</h1>
+        <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8">
+          The host has ended this watch room. Hope you enjoyed the session!
+        </p>
+        <Link to="/watch-together" className="px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-xl shadow-lg shadow-teal-500/30 transition-all">
+          Browse Active Rooms
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-[1400px] mx-auto px-4 py-6 text-slate-900 dark:text-slate-100">
       <div className="flex flex-col lg:flex-row gap-6">
@@ -150,23 +196,39 @@ export default function WatchRoomPage() {
         <div className="flex-1 min-w-0">
           <div className="mb-4 flex items-center justify-between bg-teal-50 dark:bg-teal-900/10 p-4 rounded-xl border border-teal-100 dark:border-teal-500/20 gap-3 flex-wrap">
             <div>
-              <h1 className="text-xl md:text-2xl font-bold font-display text-teal-800 dark:text-teal-300">
+              <h1 className="text-xl md:text-2xl font-bold font-display text-teal-800 dark:text-teal-300 mb-1">
                 {room.title}
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider font-semibold">
-                {isHost ? '👑 You are hosting' : `👤 Hosted by ${room.hostId?.username}`}
-              </p>
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">
+                  {isHost ? '👑 You are hosting' : `👤 Hosted by ${room.hostId?.username}`}
+                </p>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-teal-100/50 dark:bg-charcoal-800/80 border border-teal-200/50 dark:border-white/5 text-[10px] font-bold text-teal-700 dark:text-teal-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+                  {viewers} {viewers === 1 ? 'Viewer' : 'Viewers'}
+                </div>
+              </div>
             </div>
-            <button
+            <div className="flex flex-wrap items-center gap-2">
+              <button
               onClick={copyToClipboard}
               className={`shrink-0 px-4 py-2 border rounded-lg text-sm font-semibold transition-all ${
                 copied
                   ? 'bg-teal-50 border-teal-300 text-teal-700 dark:bg-teal-900/30 dark:border-teal-500/30 dark:text-teal-400'
                   : 'border-slate-300 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
               }`}
-            >
-              {copied ? '✅ Copied!' : '🔗 Copy Invite'}
-            </button>
+              >
+                {copied ? '✅ Copied!' : '🔗 Copy Invite'}
+              </button>
+              {isHost && (
+                <button
+                  onClick={() => emitControl('close_room')}
+                  className="shrink-0 px-4 py-2 border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-900/20 dark:border-rose-500/30 dark:text-rose-400 dark:hover:bg-rose-900/40 rounded-lg text-sm font-semibold transition-all"
+                >
+                  End Room
+                </button>
+              )}
+            </div>
           </div>
 
           {room.status === 'scheduled' ? (
@@ -184,6 +246,17 @@ export default function WatchRoomPage() {
                   Start Now
                 </button>
               )}
+            </div>
+          ) : closingCountdown !== null ? (
+            <div className="aspect-video flex flex-col items-center justify-center bg-rose-950/20 rounded-2xl ring-1 ring-rose-500/20 mb-6 relative overflow-hidden animate-fadeUp">
+              <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(244,63,94,0.05),transparent_70%)]" />
+              <h2 className="text-2xl md:text-3xl font-display font-bold text-rose-500 mb-3 z-10">Playlist Complete</h2>
+              <p className="text-slate-400 text-sm mb-6 z-10 text-center px-4">There are no more episodes in the queue. Auto-closing room...</p>
+              <div className="text-5xl md:text-7xl font-black text-rose-400 mb-10 animate-pulse z-10">{closingCountdown}s</div>
+              <div className="flex gap-4 z-10">
+                <button onClick={() => emitControl('close_room')} className="px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl transition-colors shadow-lg">End Now</button>
+                <button onClick={() => setClosingCountdown(null)} className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl transition-colors border border-slate-700">Cancel Timer</button>
+              </div>
             </div>
           ) : (
             <div className="mb-6">
