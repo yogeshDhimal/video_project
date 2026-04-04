@@ -1,6 +1,6 @@
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ThemeToggle from './ThemeToggle';
 import WatchlistDropdown from './WatchlistDropdown';
 import NotificationsDropdown from './NotificationsDropdown';
@@ -18,9 +18,24 @@ export default function Navbar() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Close mobile menu on route change
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const userRef = useRef(null);
+
+  // Close user dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userRef.current && !userRef.current.contains(event.target)) {
+        setUserDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Close user dropdown on route change
   useEffect(() => {
     setMobileMenuOpen(false);
+    setUserDropdownOpen(false);
   }, [location.pathname]);
 
   return (
@@ -54,26 +69,54 @@ export default function Navbar() {
         <div className="flex items-center gap-2 sm:gap-3">
           <ThemeToggle />
           {user ? (
-            <>
+            <div className="flex items-center gap-2 sm:gap-3">
               <WatchlistDropdown />
               <NotificationsDropdown />
-              <Link
-                to="/profile"
-                className="text-sm text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors hidden sm:block max-w-[120px] truncate font-medium"
-              >
-                {user.username}
-              </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  logout();
-                  navigate('/');
-                }}
-                className="text-sm px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-800 dark:border-white/10 dark:hover:bg-white/[0.06] dark:text-slate-200 transition-colors"
-              >
-                Log out
-              </button>
-            </>
+              <div className="relative" ref={userRef}>
+                <button
+                  type="button"
+                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                  className={`w-10 h-10 rounded-xl overflow-hidden border-2 transition-all active:scale-90 flex-shrink-0 ${
+                    userDropdownOpen 
+                      ? 'border-teal-500 shadow-[0_0_20px_-5px_rgba(20,184,166,0.5)]' 
+                      : 'border-transparent hover:border-teal-500/50 shadow-md'
+                  }`}
+                >
+                  <img
+                    src={user.avatar ? `/api/assets/avatar/${user._id}` : `https://api.dicebear.com/7.x/initials/svg?seed=${user.username}&backgroundColor=14b8a6&fontFamily=Inter&fontWeight=700`}
+                    alt={user.username}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+                
+                {userDropdownOpen && (
+                  <div className="absolute right-0 mt-3 w-48 bg-white border border-slate-200 shadow-2xl rounded-2xl dark:bg-charcoal-900 dark:border-white/10 dark:shadow-glow z-50 origin-top-right animate-fadeUp py-2">
+                    <div className="px-4 py-2 border-b border-slate-100 dark:border-white/5 mb-1.5">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-0.5">Account</p>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{user.username}</p>
+                    </div>
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:text-teal-600 hover:bg-teal-50 dark:text-slate-300 dark:hover:text-teal-400 dark:hover:bg-teal-900/15 transition-all"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                      My Profile
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        logout();
+                        navigate('/');
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/15 transition-all border-t border-slate-100 dark:border-white/5 mt-1.5 pt-3"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                      Log out
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
             <>
               <Link
@@ -127,6 +170,24 @@ export default function Navbar() {
               <NavLink to="/admin" className={link}>
                 Admin
               </NavLink>
+            )}
+            {user && (
+              <>
+                <div className="h-px bg-slate-200/50 dark:bg-white/5 my-1" />
+                <NavLink to="/profile" className={link}>
+                  My Profile
+                </NavLink>
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    navigate('/');
+                  }}
+                  className="flex items-center px-3.5 py-4 rounded-xl text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/15 transition-all text-left"
+                >
+                  Log out
+                </button>
+              </>
             )}
           </nav>
         </div>

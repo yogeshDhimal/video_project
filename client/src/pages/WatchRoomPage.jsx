@@ -253,9 +253,10 @@ export default function WatchRoomPage() {
               <h2 className="text-2xl md:text-3xl font-display font-bold text-rose-500 mb-3 z-10">Playlist Complete</h2>
               <p className="text-slate-400 text-sm mb-6 z-10 text-center px-4">There are no more episodes in the queue. Auto-closing room...</p>
               <div className="text-5xl md:text-7xl font-black text-rose-400 mb-10 animate-pulse z-10">{closingCountdown}s</div>
-              <div className="flex gap-4 z-10">
-                <button onClick={() => emitControl('close_room')} className="px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl transition-colors shadow-lg">End Now</button>
-                <button onClick={() => setClosingCountdown(null)} className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl transition-colors border border-slate-700">Cancel Timer</button>
+              <div className="flex justify-center z-10">
+                <button onClick={() => emitControl('close_room')} className="px-10 py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-rose-600/20">
+                  End Room Now
+                </button>
               </div>
             </div>
           ) : (
