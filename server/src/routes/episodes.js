@@ -174,4 +174,34 @@ router.post('/:id/view', optionalAuth, asyncHandler(async (req, res) => {
   res.json({ views: ep.views, trendingScore: ep.trendingScore });
 }));
 
+// ── Rating Logic ──
+router.get('/:id/my-rating', authenticate, asyncHandler(async (req, res) => {
+  const Rating = require('../models/Rating');
+  const rating = await Rating.findOne({ userId: req.user._id, episodeId: req.params.id });
+  res.json({ rating: rating ? rating.rating : 0 });
+}));
+
+router.post(
+  '/:id/rate',
+  authenticate,
+  [body('rating').isInt({ min: 1, max: 5 })],
+  asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const Rating = require('../models/Rating');
+    const { updateRatings } = require('../helpers/content');
+
+    await Rating.findOneAndUpdate(
+      { userId: req.user._id, episodeId: req.params.id },
+      { $set: { rating: req.body.rating } },
+      { upsert: true, new: true }
+    );
+
+    await updateRatings(req.params.id);
+    const ep = await Episode.findById(req.params.id);
+    res.json({ ratingAvg: ep.ratingAvg, totalRatings: ep.totalRatings });
+  })
+);
+
 module.exports = router;

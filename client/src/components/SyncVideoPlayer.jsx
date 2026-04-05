@@ -137,7 +137,9 @@ export default function SyncVideoPlayer({
         ref={videoRef}
         key={src}
         src={src}
-        className="w-full aspect-video bg-black"
+        onClick={togglePlay}
+        tabIndex={isHost ? "0" : "-1"}
+        className={`w-full aspect-video bg-black ${isHost ? 'cursor-pointer' : 'pointer-events-none'}`}
         playsInline
         preload="metadata"
         onPlay={handlePlay}

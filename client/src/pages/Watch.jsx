@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import VideoPlayer from '../components/VideoPlayer';
+import RatingWidget from '../components/RatingWidget';
 import Spinner from '../components/Spinner';
 import { io } from 'socket.io-client';
 
@@ -48,6 +49,7 @@ export default function Watch() {
   const [likes, setLikes] = useState(0);
   const [dislikes, setDislikes] = useState(0);
   const [userVote, setUserVote] = useState(0);
+  const [myRating, setMyRating] = useState(0);
   const socketRef = useRef(null);
 
   useEffect(() => {
@@ -79,6 +81,15 @@ export default function Watch() {
           setLikes(d.episode?.likes || 0);
           setDislikes(d.episode?.dislikes || 0);
           setUserVote(v);
+          
+          if (token) {
+            try {
+              const { data: rData } = await api.get(`/episodes/${episodeId}/my-rating`);
+              setMyRating(rData.rating || 0);
+            } catch (e) {
+              setMyRating(0);
+            }
+          }
         }
       } catch {
         if (!cancelled) {
@@ -287,38 +298,53 @@ export default function Watch() {
         <p className="text-slate-600 dark:text-slate-400 flex-1 text-lg">{episode.description}</p>
         
         {/* Like & Dislike Actions */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/5 rounded-full p-1 shadow-inner shrink-0">
-          <button
-            onClick={() => handleVote(1)}
-            aria-label="Like"
-            title={!user ? "Log in to like" : "Like"}
-            className={`group flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200 active:scale-95 ${
-              userVote === 1 
-                ? 'bg-teal-600 text-white shadow-md ring-1 ring-teal-500' 
-                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-teal-600 dark:hover:text-teal-400'
-            } ${!user && 'opacity-70 cursor-not-allowed'}`}
-            disabled={!user}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={userVote === 1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${userVote !== 1 && 'group-hover:-translate-y-0.5 transition-transform'}`}><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></svg>
-            <span className="text-sm">{likes > 0 ? likes : 'Like'}</span>
-          </button>
-          
-          <div className="w-px h-5 bg-slate-300 dark:bg-white/10" />
-          
-          <button
-            onClick={() => handleVote(-1)}
-            aria-label="Dislike"
-            title={!user ? "Log in to dislike" : "Dislike"}
-            className={`group flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200 active:scale-95 ${
-              userVote === -1 
-                ? 'bg-rose-600 text-white shadow-md ring-1 ring-rose-500' 
-                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-rose-600 dark:hover:text-rose-400'
-            } ${!user && 'opacity-70 cursor-not-allowed'}`}
-            disabled={!user}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={userVote === -1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${userVote !== -1 && 'group-hover:translate-y-0.5 transition-transform'}`}><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"/></svg>
-            <span className="text-sm">{dislikes > 0 ? dislikes : 'Dislike'}</span>
-          </button>
+        <div className="flex flex-col sm:flex-row items-center gap-6">
+          {user && (
+            <RatingWidget
+              episodeId={episodeId}
+              initialRating={myRating}
+              onRatingUpdate={(avg, total) => {
+                setData((prev) => ({
+                  ...prev,
+                  episode: { ...prev.episode, ratingAvg: avg, totalRatings: total },
+                }));
+              }}
+            />
+          )}
+
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/5 rounded-full p-1 shadow-inner shrink-0">
+            <button
+              onClick={() => handleVote(1)}
+              aria-label="Like"
+              title={!user ? "Log in to like" : "Like"}
+              className={`group flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200 active:scale-95 ${
+                userVote === 1 
+                  ? 'bg-teal-600 text-white shadow-md ring-1 ring-teal-500' 
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-teal-600 dark:hover:text-teal-400'
+              } ${!user && 'opacity-70 cursor-not-allowed'}`}
+              disabled={!user}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={userVote === 1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${userVote !== 1 && 'group-hover:-translate-y-0.5 transition-transform'}`}><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></svg>
+              <span className="text-sm">{likes > 0 ? likes : 'Like'}</span>
+            </button>
+            
+            <div className="w-px h-5 bg-slate-300 dark:bg-white/10" />
+            
+            <button
+              onClick={() => handleVote(-1)}
+              aria-label="Dislike"
+              title={!user ? "Log in to dislike" : "Dislike"}
+              className={`group flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200 active:scale-95 ${
+                userVote === -1 
+                  ? 'bg-rose-600 text-white shadow-md ring-1 ring-rose-500' 
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-rose-600 dark:hover:text-rose-400'
+              } ${!user && 'opacity-70 cursor-not-allowed'}`}
+              disabled={!user}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={userVote === -1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${userVote !== -1 && 'group-hover:translate-y-0.5 transition-transform'}`}><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"/></svg>
+              <span className="text-sm">{dislikes > 0 ? dislikes : 'Dislike'}</span>
+            </button>
+          </div>
         </div>
       </div>
 

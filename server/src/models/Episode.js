@@ -41,6 +41,8 @@ const episodeSchema = new mongoose.Schema(
     recentViews: { type: Number, default: 0 },
     engagementScore: { type: Number, default: 0, index: true },
     trendingScore: { type: Number, default: 0, index: true },
+    ratingAvg: { type: Number, default: 0 },
+    totalRatings: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

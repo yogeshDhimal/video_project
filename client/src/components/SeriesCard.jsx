@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import RatingStars from './RatingStars';
 
 export default function SeriesCard({ series, episodeId }) {
   const to = episodeId ? `/watch/${episodeId}` : `/series/${series._id}`;
@@ -27,6 +28,14 @@ export default function SeriesCard({ series, episodeId }) {
             {series.title}
           </h3>
           <p className="text-[11px] text-teal-300/90 dark:text-teal-400/80 mt-1 font-medium">{series.releaseYear}</p>
+          
+          <div className="mt-2 flex items-center justify-between">
+            {series.status === 'completed' ? (
+              <RatingStars rating={series.ratingAvg || 0} size="xs" />
+            ) : (
+              <span className="text-[9px] font-bold uppercase tracking-wider text-teal-300/50">Rating: N/A</span>
+            )}
+          </div>
         </div>
       </div>
     </Link>

@@ -4,6 +4,7 @@ import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import Spinner from '../components/Spinner';
 import VideoPlayer from '../components/VideoPlayer';
+import RatingStars from '../components/RatingStars';
 
 export default function SeriesDetail() {
   const { id } = useParams();
@@ -107,6 +108,18 @@ export default function SeriesDetail() {
           <p className="text-slate-600 dark:text-slate-400 text-sm mb-4">
             {series.releaseYear} · {(series.genres || []).join(' · ')}
           </p>
+          <div className="mb-6">
+            {series.status === 'completed' ? (
+              <div className="flex items-center gap-3 bg-white/50 dark:bg-white/[0.03] w-fit px-4 py-2 rounded-2xl border border-slate-100 dark:border-white/5">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Global Rating</span>
+                <RatingStars rating={series.ratingAvg || 0} size="md" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 w-fit px-3 py-1.5 rounded-xl border border-teal-100 dark:border-teal-800/50">
+                <span className="text-[10px] font-bold uppercase tracking-widest">Rating Pending (Ongoing)</span>
+              </div>
+            )}
+          </div>
           <p className="text-slate-700 dark:text-slate-300 leading-relaxed mb-6">{series.description}</p>
           {user && (
             <button

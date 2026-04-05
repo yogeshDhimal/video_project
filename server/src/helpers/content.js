@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Series = require('../models/Series');
 const Season = require('../models/Season');
 const Episode = require('../models/Episode');
@@ -69,4 +70,49 @@ async function getPrevEpisode(episodeId) {
   return { episode: last, season: prevSeason, series };
 }
 
-module.exports = { getEpisodeChain, listEpisodesForSeries, getNextEpisode, getPrevEpisode };
+async function updateRatings(episodeId) {
+  const Rating = require('../models/Rating');
+  const Episode = require('../models/Episode');
+  const Season = require('../models/Season');
+  const Series = require('../models/Series');
+
+  const stats = await Rating.aggregate([
+    { $match: { episodeId: new mongoose.Types.ObjectId(episodeId) } },
+    { $group: { _id: '$episodeId', avg: { $avg: '$rating' }, count: { $sum: 1 } } },
+  ]);
+
+  const episode = await Episode.findById(episodeId);
+  if (!episode) return;
+
+  if (stats.length > 0) {
+    episode.ratingAvg = stats[0].avg;
+    episode.totalRatings = stats[0].count;
+  } else {
+    episode.ratingAvg = 0;
+    episode.totalRatings = 0;
+  }
+  await episode.save();
+
+  // Now bubble up to Series
+  const season = await Season.findById(episode.seasonId);
+  if (!season) return;
+
+  const seasons = await Season.find({ seriesId: season.seriesId }).select('_id');
+  const sIds = seasons.map((s) => s._id);
+
+  const seriesStats = await Episode.aggregate([
+    { $match: { seasonId: { $in: sIds }, ratingAvg: { $gt: 0 } } },
+    { $group: { _id: null, avg: { $avg: '$ratingAvg' } } },
+  ]);
+
+  const seriesAvg = seriesStats.length > 0 ? seriesStats[0].avg : 0;
+  await Series.findByIdAndUpdate(season.seriesId, { ratingAvg: seriesAvg });
+}
+
+module.exports = {
+  getEpisodeChain,
+  listEpisodesForSeries,
+  getNextEpisode,
+  getPrevEpisode,
+  updateRatings,
+};
