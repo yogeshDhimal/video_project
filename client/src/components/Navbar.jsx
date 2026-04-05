@@ -45,7 +45,7 @@ export default function Navbar() {
           to="/"
           className="font-display font-bold text-lg sm:text-xl tracking-tight text-slate-900 dark:text-white flex items-center gap-3 group shrink-0"
         >
-          StreamVault
+          ClickWatch
         </Link>
         <nav className="hidden md:flex items-center gap-0.5 p-1 rounded-2xl bg-slate-100/80 border border-slate-200/80 dark:bg-black/20 dark:border-white/[0.06]">
           <NavLink to="/" className={link} end>

@@ -15,7 +15,7 @@ const env = {
   emailPort: Number(process.env.EMAIL_PORT) || 587,
   emailUser: process.env.EMAIL_USER || '',
   emailPass: process.env.EMAIL_PASS || '',
-  emailFrom: process.env.EMAIL_FROM || 'noreply@streamvault.local',
+  emailFrom: process.env.EMAIL_FROM || 'noreply@clickwatch.local',
 };
 
 module.exports = env;

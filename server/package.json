@@ -1,11 +1,13 @@
 {
-  "name": "streamvault-server",
+  "name": "clickwatch-server",
   "version": "1.0.0",
   "private": true,
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "kill-port": "node scripts/kill-port.js",
+    "predev": "node scripts/kill-port.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -1,5 +1,5 @@
 {
-  "name": "streamvault",
+  "name": "clickwatch",
   "private": true,
   "scripts": {
     "dev:server": "npm run dev --prefix server",

@@ -12,8 +12,7 @@ const navGroups = [
   {
     label: 'Library',
     items: [
-      { to: '/admin/media', end: false, label: 'Media uploads', icon: '▣' },
-      { to: '/admin/series', end: true, label: 'All series', icon: '☰' },
+      { to: '/admin/series', end: true, label: 'Manage series', icon: '☰' },
       { to: '/admin/series/drafts', end: false, label: 'Drafts', icon: '✎' },
       { to: '/admin/series/new', end: false, label: 'New series', icon: '＋' },
       { to: '/admin/seasons', end: false, label: 'New season', icon: '▤' },
@@ -57,19 +56,17 @@ export default function AdminLayout() {
         ? 'Admin guide'
         : pathname.includes('/users')
           ? 'Users'
-          : pathname.includes('/media')
-            ? 'Media uploads'
-            : pathname.endsWith('/series/new')
-              ? 'New series'
-              : pathname.endsWith('/series/drafts')
-                ? 'Drafts'
-                : pathname.includes('/series')
-                  ? 'Series library'
-                  : pathname.includes('/seasons')
-                    ? 'New season'
-                    : pathname.includes('/episodes')
-                      ? 'New episode'
-                      : 'Admin';
+          : pathname.endsWith('/series/new')
+            ? 'New series'
+            : pathname.endsWith('/series/drafts')
+              ? 'Drafts'
+              : pathname.includes('/series')
+                ? 'Manage Series'
+                : pathname.includes('/seasons')
+                  ? 'New season'
+                  : pathname.includes('/episodes')
+                    ? 'New episode'
+                    : 'Admin';
 
   return (
     <div className="min-h-[calc(100vh-5rem)] flex flex-col lg:flex-row">
@@ -96,8 +93,6 @@ export default function AdminLayout() {
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-72 shrink-0 flex-col border-r border-slate-200/90 bg-gradient-to-b from-slate-50 to-white dark:from-charcoal-950 dark:to-charcoal-900 dark:border-white/10">
         <div className="p-6 border-b border-slate-100 dark:border-white/5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-teal-600 dark:text-teal-400">Console</p>
-          <h1 className="font-display text-xl font-bold text-slate-900 dark:text-white mt-1">Administration</h1>
         </div>
         <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
           {navGroups.map((group) => (
@@ -114,7 +109,7 @@ export default function AdminLayout() {
           ))}
         </nav>
         <div className="p-4 border-t border-slate-100 dark:border-white/5 text-xs text-slate-500 dark:text-slate-500">
-          StreamVault control panel
+          ClickWatch control panel
         </div>
       </aside>
 

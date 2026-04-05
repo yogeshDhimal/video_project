@@ -9,10 +9,10 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 async function demoAlgorithms() {
     console.log('\n======================================================');
-    console.log('🎬 STREAMVAULT CORE ALGORITHMS DEMONSTRATOR');
+    console.log('🎬 CLICKWATCH CORE ALGORITHMS DEMONSTRATOR');
     console.log('======================================================\n');
 
-    const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/streamvault';
+    const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/clickwatch';
     await mongoose.connect(uri);
 
     try {

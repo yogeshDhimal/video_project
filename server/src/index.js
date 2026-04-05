@@ -18,8 +18,18 @@ async function main() {
   await connectDB(env.mongoUri);
   const server = http.createServer(app);
   initSocket(server, app);
+  server.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+      console.error(`\n❌ Error: Port ${PORT} is already in use.`);
+      console.error(`💡 Try running: npm run kill-port\n`);
+      process.exit(1);
+    } else {
+      console.error('Server error:', e);
+    }
+  });
+
   server.listen(PORT, () => {
-    console.log(`StreamVault API listening on ${PORT}`);
+    console.log(`ClickWatch API listening on ${PORT}`);
   });
 }
 

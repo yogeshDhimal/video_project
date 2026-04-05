@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * StreamVault Master Seed Script (Expanded for Project Defense)
+ * ClickWatch Master Seed Script (Expanded for Project Defense)
  * ──────────────────────────────
  * Creates 15 series across varied genres, each with 1 season and 2-3 episodes.
  * Generates robust User-to-User similarity sets to mathematically demonstrate:
@@ -136,9 +136,9 @@ const SERIES_DEFS = [
 
 // ───────────────── Main Seed Function ──────────────────
 async function seed() {
-  console.log('\n🌱 StreamVault Master Seeder\n' + '─'.repeat(40));
+  console.log('\n🌱 ClickWatch Master Seeder\n' + '─'.repeat(40));
 
-  const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/streamvault';
+  const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/clickwatch';
   await mongoose.connect(uri);
   console.log('✓ Connected to MongoDB');
 
@@ -159,15 +159,15 @@ async function seed() {
     if (!usr) usr = await User.create({ email: e, password: p, username: u, role: 'user', isVerified: true, preferredGenres: g });
     return usr;
   };
-  const admin = await User.findOne({ role: 'admin' }) || await User.create({ email: 'admin@streamvault.dev', password: 'Admin1234!', username: 'Admin', role: 'admin', isVerified: true, preferredGenres: ['Sci-Fi'] });
+  const admin = await User.findOne({ role: 'admin' }) || await User.create({ email: 'admin@clickwatch.dev', password: 'Admin1234!', username: 'Admin', role: 'admin', isVerified: true, preferredGenres: ['Sci-Fi'] });
   
   // Cluster A: Sci-Fi & Action fans
-  const u1 = await createUsr('scifi_nerd@streamvault.dev', 'Viewer1234!', 'SciFiNerd', ['Sci-Fi', 'Action']);
-  const u2 = await createUsr('action_hero@streamvault.dev', 'Viewer1234!', 'ActionHero', ['Action', 'Adventure']);
+  const u1 = await createUsr('scifi_nerd@clickwatch.dev', 'Viewer1234!', 'SciFiNerd', ['Sci-Fi', 'Action']);
+  const u2 = await createUsr('action_hero@clickwatch.dev', 'Viewer1234!', 'ActionHero', ['Action', 'Adventure']);
   
   // Cluster B: Nature & Documentary fans
-  const u3 = await createUsr('nature_lover@streamvault.dev', 'Viewer1234!', 'NatureLover', ['Nature', 'Documentary']);
-  const u4 = await createUsr('casual_watcher@streamvault.dev', 'Viewer1234!', 'CasualWatcher', ['Comedy', 'Drama', 'Documentary']);
+  const u3 = await createUsr('nature_lover@clickwatch.dev', 'Viewer1234!', 'NatureLover', ['Nature', 'Documentary']);
+  const u4 = await createUsr('casual_watcher@clickwatch.dev', 'Viewer1234!', 'CasualWatcher', ['Comedy', 'Drama', 'Documentary']);
 
   console.log('\n📺 Creating ' + SERIES_DEFS.length + ' series & episodes...');
   const allEpisodes = []; 
@@ -237,7 +237,7 @@ async function seed() {
   console.log('\n' + '─'.repeat(40));
   console.log('🎉 Defense Database Setup Complete!\n');
   console.log('Test SVD Algorithm By Logging In As:');
-  console.log('  scifi_nerd@streamvault.dev / Viewer1234!');
+  console.log('  scifi_nerd@clickwatch.dev / Viewer1234!');
   console.log('  -> Should heavily recommend Action/Sci-Fi via U-V Latent Vectors.');
   
   await mongoose.disconnect();

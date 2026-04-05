@@ -174,7 +174,7 @@ export default function Home() {
         <EpisodeStrip
           title="Recommended for you"
           subtitle="Based on your history, likes, and genres"
-          items={rec.map((x) => ({ episode: x.episode, series: x.series, mathProof: x.mathProof }))}
+          items={rec.map((x) => ({ episode: x.episode, series: x.series }))}
           loading={false}
           emptyTitle="No recommendations yet"
           emptyDescription="Watch a few episodes and we'll tune suggestions to your taste."

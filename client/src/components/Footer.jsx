@@ -6,11 +6,11 @@ export default function Footer() {
       <div className="max-w-[1400px] mx-auto px-4 md:px-8 flex flex-col items-center text-center">
         <Link to="/" className="mb-6 group">
           <span className="font-display font-black text-3xl text-slate-900 dark:text-white tracking-tight hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
-            StreamVault
+            ClickWatch
           </span>
         </Link>
         <p className="text-sm text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed mb-8">
-          StreamVault does not store any files on our server, we only linked to the media which is hosted on 3rd party services.
+          ClickWatch does not store any files on our server, we only linked to the media which is hosted on 3rd party services.
         </p>
         
         <div className="flex flex-wrap justify-center gap-6 text-sm font-semibold text-slate-600 dark:text-slate-300 mb-8">
@@ -21,7 +21,7 @@ export default function Footer() {
         </div>
 
         <p className="text-sm text-slate-400 dark:text-slate-600">
-          © {new Date().getFullYear()} StreamVault. All rights reserved.
+          © {new Date().getFullYear()} ClickWatch. All rights reserved.
         </p>
       </div>
     </footer>

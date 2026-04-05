@@ -5,9 +5,8 @@ import Spinner from '../components/Spinner';
 import { Panel } from './adminUi';
 
 const shortcuts = [
-  { to: '/admin/guide', title: 'Admin guide', desc: 'Step-by-step: uploads → series → seasons → episodes', accent: 'from-sky-500/20 to-sky-600/5' },
+  { to: '/admin/guide', title: 'Detailed Guide', desc: 'The "Manual" for ClickWatch administrators', accent: 'from-teal-500/20 to-teal-600/5' },
   { to: '/admin/users', title: 'Manage users', desc: 'Roles, bans, account access', accent: 'from-violet-500/20 to-violet-600/5' },
-  { to: '/admin/media', title: 'Media uploads', desc: 'Videos, posters, subtitles', accent: 'from-teal-500/20 to-teal-600/5' },
   { to: '/admin/series/new', title: 'New series', desc: 'Wizard: basics, then details & publish', accent: 'from-cyan-500/20 to-cyan-600/5' },
   { to: '/admin/series/drafts', title: 'Drafts', desc: 'Unpublished series — continue or publish', accent: 'from-amber-500/20 to-amber-600/5' },
   { to: '/admin/seasons', title: 'New season', desc: 'Add a season to existing IP', accent: 'from-orange-500/20 to-orange-600/5' },
@@ -44,6 +43,24 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8">
+      <Link
+        to="/admin/guide"
+        className="block relative overflow-hidden rounded-3xl bg-gradient-to-r from-teal-600 to-teal-500 p-8 shadow-lg shadow-teal-600/20 group transition-all hover:-translate-y-0.5"
+      >
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
+        <div className="relative z-10 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-2">Getting Started Guide</h2>
+            <p className="text-teal-50/80 max-w-lg leading-relaxed">
+              New here? Follow our step-by-step guide to learn how to upload media, create series, and publish episodes to your catalog.
+            </p>
+          </div>
+          <div className="hidden md:flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur group-hover:bg-white/30 transition-colors">
+            <span className="text-xl">➔</span>
+          </div>
+        </div>
+      </Link>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           ['Total users', dash.totalUsers, '👥'],
