@@ -191,6 +191,7 @@ router.post(
 
     const Rating = require('../models/Rating');
     const { updateRatings } = require('../helpers/content');
+    const { invalidateRatingMatrixCache } = require('../algorithms');
 
     await Rating.findOneAndUpdate(
       { userId: req.user._id, episodeId: req.params.id },
@@ -198,10 +199,24 @@ router.post(
       { upsert: true, new: true }
     );
 
+    invalidateRatingMatrixCache();
     await updateRatings(req.params.id);
     const ep = await Episode.findById(req.params.id);
     res.json({ ratingAvg: ep.ratingAvg, totalRatings: ep.totalRatings });
   })
 );
+
+router.delete('/:id/rate', authenticate, asyncHandler(async (req, res) => {
+  const Rating = require('../models/Rating');
+  const { updateRatings } = require('../helpers/content');
+  const { invalidateRatingMatrixCache } = require('../algorithms');
+
+  await Rating.findOneAndDelete({ userId: req.user._id, episodeId: req.params.id });
+  
+  invalidateRatingMatrixCache();
+  await updateRatings(req.params.id);
+  const ep = await Episode.findById(req.params.id);
+  res.json({ ratingAvg: ep.ratingAvg, totalRatings: ep.totalRatings });
+}));
 
 module.exports = router;

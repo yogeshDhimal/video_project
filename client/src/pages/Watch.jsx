@@ -10,25 +10,134 @@ import { io } from 'socket.io-client';
 function CommentVoteButtons({ item, user, onVote }) {
   const uv = item.userVote || 0;
   return (
-    <div className="flex items-center gap-3 mt-2">
+    <div className="flex items-center gap-4 mt-2">
       <button
         onClick={() => onVote(item._id, 1)}
         disabled={!user}
-        className={`flex items-center gap-1 text-xs font-medium transition-colors ${uv === 1 ? 'text-teal-600 dark:text-teal-400' : 'text-slate-500 hover:text-teal-600 dark:hover:text-teal-400'} ${!user && 'opacity-70 cursor-not-allowed'}`}
-        title={!user ? "Log in to like" : "Like"}
+        className={`flex items-center gap-1.5 text-xs font-bold transition-all ${uv === 1 ? 'text-teal-600 dark:text-teal-400 scale-105' : 'text-slate-500 hover:text-teal-600 dark:hover:text-teal-400'} ${!user && 'opacity-50 cursor-not-allowed'}`}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill={uv === 1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></svg>
-        {item.likes || 0}
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill={uv === 1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></svg>
+        <span>{item.likes || 0}</span>
       </button>
       <button
         onClick={() => onVote(item._id, -1)}
         disabled={!user}
-        className={`flex items-center gap-1 text-xs font-medium transition-colors ${uv === -1 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 hover:text-rose-600 dark:hover:text-rose-400'} ${!user && 'opacity-70 cursor-not-allowed'}`}
-        title={!user ? "Log in to dislike" : "Dislike"}
+        className={`flex items-center gap-1.5 text-xs font-bold transition-all ${uv === -1 ? 'text-rose-600 dark:text-rose-400 scale-105' : 'text-slate-500 hover:text-rose-600 dark:hover:text-rose-400'} ${!user && 'opacity-50 cursor-not-allowed'}`}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill={uv === -1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"/></svg>
-        {item.dislikes > 0 ? item.dislikes : ''}
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill={uv === -1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"/></svg>
+        <span>{item.dislikes > 0 ? item.dislikes : ''}</span>
       </button>
+    </div>
+  );
+}
+
+function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, depth = 0 }) {
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [showAll, setShowAll] = useState(false);
+  const replies = comment.replies || [];
+  const visibleReplies = showAll ? replies : replies.slice(0, 3);
+  const hasMore = replies.length > 3 && !showAll;
+
+  const canDelete = user && (user._id === comment.userId || user.role === 'admin');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!replyText.trim()) return;
+    onSubmitReply(comment._id, replyText);
+    setReplyText('');
+    setIsReplying(false);
+    setShowAll(true);
+  };
+
+  const isReply = depth > 0;
+
+  return (
+    <div className={`relative ${isReply ? 'mt-4 ml-6 pl-4' : 'mb-8'}`}>
+      {/* Connector lines (FB style) */}
+      {isReply && <div className="comment-connector-h" />}
+      {replies.length > 0 && <div className="comment-connector-v" />}
+
+      <div className="group/comment relative">
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <div className={`p-3 rounded-2xl ${isReply ? 'bg-slate-50 dark:bg-white/5' : 'bg-white border border-slate-100 dark:bg-charcoal-900/40 dark:border-white/5'} shadow-sm transition-all group-hover/comment:shadow-md`}>
+              <div className="flex justify-between items-start mb-1">
+                <p className="text-[10px] font-black tracking-widest uppercase text-teal-600 dark:text-teal-400">
+                  {comment.user?.username}
+                </p>
+                {canDelete && (
+                  <button 
+                    onClick={() => onDelete(comment._id)}
+                    className="opacity-0 group-hover/comment:opacity-100 text-[10px] font-black text-rose-400 hover:text-rose-600 dark:text-rose-500/50 dark:hover:text-rose-400 transition-all uppercase tracking-tighter"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed break-words">
+                {comment.body}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-4 mt-2 px-1">
+              <CommentVoteButtons item={comment} user={user} onVote={onVote} />
+              {user && (
+                <button 
+                  onClick={() => setIsReplying(!isReplying)}
+                  className={`text-[10px] font-black uppercase tracking-wider transition-colors ${isReplying ? 'text-rose-500' : 'text-slate-400 hover:text-teal-500'}`}
+                >
+                  {isReplying ? 'Cancel' : 'Reply'}
+                </button>
+              )}
+              <span className="text-[10px] font-bold text-slate-300 dark:text-slate-700">
+                {new Date(comment.createdAt).toLocaleDateString()}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {isReplying && (
+          <form onSubmit={handleSubmit} className="mt-4 ml-2 flex gap-2 animate-fadeUp">
+            <input
+              autoFocus
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              className="flex-1 px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:ring-2 focus:ring-teal-500/20 outline-none dark:bg-charcoal-850 dark:border-white/10 dark:text-white"
+              placeholder={`Reply to ${comment.user?.username}...`}
+            />
+            <button type="submit" className="px-4 py-2 rounded-xl bg-teal-600 text-white text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-teal-500 transition-colors">
+              Post
+            </button>
+          </form>
+        )}
+      </div>
+
+      {visibleReplies.length > 0 && (
+        <div className="space-y-2">
+          {visibleReplies.map((r) => (
+            <CommentItem 
+              key={r._id} 
+              comment={r} 
+              user={user} 
+              onVote={onVote} 
+              onSubmitReply={onSubmitReply}
+              onDelete={onDelete}
+              depth={depth + 1}
+            />
+          ))}
+          
+          {hasMore && (
+            <button 
+              onClick={() => setShowAll(true)}
+              className="ml-10 mt-2 text-[10px] font-black text-teal-600 hover:text-teal-500 dark:text-teal-400 uppercase tracking-widest flex items-center gap-1.5"
+            >
+              <span className="w-4 h-px bg-current opacity-30" />
+              View {replies.length - 3} more replies
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -154,22 +263,39 @@ export default function Watch() {
   const { episode, series, season } = data;
 
   // Fixed: optimistic comment append instead of full refetch (issue 3.3)
-  const submitComment = async (e) => {
-    e.preventDefault();
-    if (!comment.trim()) return;
+  const submitComment = async (parentId = null, body = null) => {
+    const text = body || comment;
+    if (!text.trim()) return;
     try {
-      const { data: cData } = await api.post(`/episodes/${episodeId}/comments`, { body: comment });
-      setComment('');
-      // Optimistically prepend new comment
+      const { data: cData } = await api.post(`/episodes/${episodeId}/comments`, { 
+        body: text,
+        parentId 
+      });
+      if (!body) setComment('');
+      
+      const updateReplies = (list) => {
+        return list.map(c => {
+          if (c._id === parentId) {
+            return { ...c, replies: [...(c.replies || []), cData.comment] };
+          }
+          if (c.replies) {
+            return { ...c, replies: updateReplies(c.replies) };
+          }
+          return c;
+        });
+      };
+
       if (cData.comment) {
-        setComments((prev) => [{ ...cData.comment, user: { username: user.username }, replies: [] }, ...prev]);
+        if (!parentId) {
+          setComments((prev) => [{ ...cData.comment, replies: [] }, ...prev]);
+        } else {
+          setComments((prev) => updateReplies(prev));
+        }
       } else {
-        // Fallback: refetch if server doesn't return the comment
         const { data: c } = await api.get(`/episodes/${episodeId}/comments`);
         setComments(c.comments || []);
       }
     } catch {
-      // Fallback on error
       const { data: c } = await api.get(`/episodes/${episodeId}/comments`);
       setComments(c.comments || []);
     }
@@ -258,6 +384,29 @@ export default function Watch() {
     }
   };
 
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm("Are you sure you want to delete this comment?")) return;
+    
+    // Recursive optimistic filter
+    const filterRecurse = (list) => {
+      return list.filter(c => c._id !== commentId).map(c => {
+        if (c.replies) {
+          return { ...c, replies: filterRecurse(c.replies) };
+        }
+        return c;
+      });
+    };
+
+    setComments(prev => filterRecurse(prev));
+
+    try {
+      await api.delete(`/episodes/${episodeId}/comments/${commentId}`);
+    } catch {
+      const { data: cData } = await api.get(`/episodes/${episodeId}/comments`);
+      setComments(cData.comments || []);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="mb-4 text-sm text-slate-600 dark:text-slate-400">
@@ -277,25 +426,18 @@ export default function Watch() {
         {episode.title}
       </h1>
       
-      {!token || !user ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-6 text-amber-900 text-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
-          Log in to stream protected video URLs. JWT is required for range streaming.
-        </div>
-      ) : (
-        <VideoPlayer
-          episode={episode}
-          token={token}
-          autoNextEnabled
-          onPrev={prev?.episode ? () => navigate(`/watch/${prev.episode._id}`) : undefined}
-          onNext={next?.episode ? () => navigate(`/watch/${next.episode._id}`) : undefined}
-          onEnded={() => {
-            if (next?.episode) navigate(`/watch/${next.episode._id}`);
-          }}
-        />
-      )}
+      <VideoPlayer
+        episode={episode}
+        token={token}
+        autoNextEnabled
+        onPrev={prev?.episode ? () => navigate(`/watch/${prev.episode._id}`) : undefined}
+        onNext={next?.episode ? () => navigate(`/watch/${next.episode._id}`) : undefined}
+        onEnded={() => {
+          if (next?.episode) navigate(`/watch/${next.episode._id}`);
+        }}
+      />
 
       <div className="mt-6 flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-6 mb-2">
-        <p className="text-slate-600 dark:text-slate-400 flex-1 text-lg">{episode.description}</p>
         
         {/* Like & Dislike Actions */}
         <div className="flex flex-col sm:flex-row items-center gap-6">
@@ -352,35 +494,35 @@ export default function Watch() {
         <div>
           <h2 className="font-semibold text-slate-900 dark:text-white mb-3">Comments</h2>
           {user && (
-            <form onSubmit={submitComment} className="mb-4 flex gap-2">
+            <form onSubmit={(e) => { e.preventDefault(); submitComment(); }} className="mb-8 flex gap-3">
               <input
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                className="flex-1 px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 dark:bg-charcoal-850 dark:border-white/10 dark:text-slate-100"
-                placeholder="Write a comment…"
+                className="flex-1 px-5 py-3 rounded-2xl bg-white border border-slate-200 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:ring-2 focus:ring-teal-500/20 outline-none dark:bg-charcoal-900/60 dark:border-white/10 dark:text-slate-100"
+                placeholder="Share your thoughts on this episode…"
               />
-              <button type="submit" className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium">
+              <button type="submit" className="px-6 py-3 rounded-2xl bg-teal-600 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-teal-500/20 hover:bg-teal-500 transition-all">
                 Post
               </button>
             </form>
           )}
-          <ul className="space-y-4">
+          <div className="space-y-4">
             {comments.map((c) => (
-              <li key={c._id} className="border-b border-slate-200 dark:border-white/5 pb-4">
-                <p className="text-xs text-teal-700 dark:text-teal-400">{c.user?.username}</p>
-                <p className="text-slate-800 dark:text-slate-200 mt-1">{c.body}</p>
-                <CommentVoteButtons item={c} user={user} onVote={handleCommentVote} />
-                
-                {(c.replies || []).map((r) => (
-                  <div key={r._id} className="ml-4 mt-3 pt-3 border-t border-slate-100 dark:border-white/5">
-                    <p className="text-xs text-teal-600 dark:text-teal-500">{r.user?.username}</p>
-                    <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">{r.body}</p>
-                    <CommentVoteButtons item={r} user={user} onVote={handleCommentVote} />
-                  </div>
-                ))}
-              </li>
+              <CommentItem 
+                key={c._id} 
+                comment={c} 
+                user={user} 
+                onVote={handleCommentVote} 
+                onSubmitReply={submitComment} 
+                onDelete={handleDeleteComment}
+              />
             ))}
-          </ul>
+            {!comments.length && (
+              <div className="py-10 text-center border-2 border-dashed border-slate-100 dark:border-white/5 rounded-3xl">
+                <p className="text-slate-400 dark:text-slate-600 text-sm italic">Be the first to join the discussion.</p>
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex flex-col h-full">
           <h2 className="font-semibold text-slate-900 dark:text-white mb-3">Live feed (Socket.IO)</h2>

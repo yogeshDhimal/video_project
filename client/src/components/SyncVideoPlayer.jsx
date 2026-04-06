@@ -78,9 +78,9 @@ export default function SyncVideoPlayer({
     const v = videoRef.current;
     if (!v || !src) return;
 
-    // Drift recovery: only snap if drift > 2s AND it's a new sync event
+    // Drift recovery: only snap if drift > 0.5s AND it's a new sync event
     const drift = Math.abs(v.currentTime - serverVideoTime);
-    if (drift > 2 && lastSync.current !== serverVideoTime) {
+    if (drift > 0.5 && lastSync.current !== serverVideoTime) {
       lastSync.current = serverVideoTime;
       v.currentTime = serverVideoTime;
     }

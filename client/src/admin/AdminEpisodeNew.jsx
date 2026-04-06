@@ -19,7 +19,6 @@ export default function AdminEpisodeNew() {
     seasonId: preSeason,
     number: 1,
     title: '',
-    description: '',
     qualityKey: '1080p',
     videoFileName: '',
     thumbnailPath: '',
@@ -118,7 +117,6 @@ export default function AdminEpisodeNew() {
         seasonId: form.seasonId,
         number: Number(form.number),
         title: form.title,
-        description: form.description,
         qualities,
         subtitles,
         thumbnailPath: form.thumbnailPath || undefined,
@@ -133,7 +131,6 @@ export default function AdminEpisodeNew() {
         ...f,
         number: Number(f.number) + 1,
         title: '',
-        description: '',
         videoFileName: '',
         thumbnailPath: '',
         subtitleFileName: '',
@@ -248,13 +245,6 @@ export default function AdminEpisodeNew() {
               {form.subtitleFileName && <div className="text-xs text-teal-600 mt-1 dark:text-teal-400">Selected: {form.subtitleFileName}</div>}
             </Field>
           </div>
-          <Field label="Description">
-            <textarea
-              className={`${inputClass} min-h-[80px]`}
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            />
-          </Field>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <Field label="Intro start (s)">
               <input

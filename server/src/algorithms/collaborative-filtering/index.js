@@ -116,8 +116,18 @@ async function getCollaborativeRecommendations(targetUserId, candidateEpisodeIds
   return predictions.slice(0, limit);
 }
 
+/**
+ * Invalidates the cached rating matrix.
+ * Essential for live demos so ratings update immediately without waiting 5 minutes.
+ */
+function invalidateRatingMatrixCache() {
+  cachedMatrix = null;
+  matrixBuiltAt = 0;
+}
+
 module.exports = {
   buildRatingMatrix,
   getCollaborativeRecommendations,
   getSVDRecommendations,
+  invalidateRatingMatrixCache,
 };

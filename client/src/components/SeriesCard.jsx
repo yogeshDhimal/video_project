@@ -1,12 +1,12 @@
 import { Link } from 'react-router-dom';
 import RatingStars from './RatingStars';
 
-export default function SeriesCard({ series, episodeId }) {
+export default function SeriesCard({ series, episodeId, mathProof, pearsonPredicted }) {
   const to = episodeId ? `/watch/${episodeId}` : `/series/${series._id}`;
   return (
     <Link
       to={to}
-      className="group block rounded-2xl overflow-hidden bg-white border border-slate-200/90 shadow-sm dark:bg-charcoal-850/50 dark:border-white/[0.07] card-hover backdrop-blur-sm dark:shadow-none"
+      className="group block rounded-2xl overflow-hidden bg-white border border-slate-200/90 shadow-sm dark:bg-charcoal-850/50 dark:border-white/[0.07] card-hover backdrop-blur-sm dark:shadow-none relative"
     >
       <div className="aspect-[2/3] relative bg-gradient-to-b from-slate-100 to-slate-200 dark:from-charcoal-800 dark:to-charcoal-950">
         <img

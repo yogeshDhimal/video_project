@@ -4,7 +4,7 @@ const fs = require('fs');
 const Episode = require('../models/Episode');
 const Season = require('../models/Season');
 const Series = require('../models/Series');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuth } = require('../middleware/auth');
 const { streamLimiter } = require('../middleware/rateLimiters');
 const { sendVideoRange, resolveVideoPath } = require('../services/streamService');
 const { SUBTITLES, THUMBNAILS } = require('../config/paths');
@@ -20,7 +20,7 @@ async function assertEpisodePlayable(ep, user) {
   return true;
 }
 
-router.get('/episode/:episodeId/quality/:qualityKey', streamLimiter, authenticate, async (req, res) => {
+router.get('/episode/:episodeId/quality/:qualityKey', streamLimiter, optionalAuth, async (req, res) => {
   const ep = await Episode.findById(req.params.episodeId);
   if (!ep) return res.status(404).json({ message: 'Episode not found' });
   if (!(await assertEpisodePlayable(ep, req.user))) return res.status(404).json({ message: 'Not found' });
@@ -37,7 +37,7 @@ router.get('/episode/:episodeId/quality/:qualityKey', streamLimiter, authenticat
 
 /** Optional HLS: use quality.hlsManifestRelative; serve with GET /api/stream/hls-file (see streamService.resolveHlsPath). */
 
-router.get('/subtitle/:episodeId/:fileName', streamLimiter, authenticate, async (req, res) => {
+router.get('/subtitle/:episodeId/:fileName', streamLimiter, optionalAuth, async (req, res) => {
   const ep = await Episode.findById(req.params.episodeId);
   if (!ep) return res.status(404).json({ message: 'Not found' });
   if (!(await assertEpisodePlayable(ep, req.user))) return res.status(404).json({ message: 'Not found' });
@@ -65,7 +65,7 @@ async function assertSeriesPlayable(series, user) {
   return true;
 }
 
-router.get('/series/:seriesId/video', streamLimiter, authenticate, async (req, res) => {
+router.get('/series/:seriesId/video', streamLimiter, optionalAuth, async (req, res) => {
   const s = await Series.findById(req.params.seriesId);
   if (!s || !s.videoFile) return res.status(404).json({ message: 'Not found' });
   if (!(await assertSeriesPlayable(s, req.user))) return res.status(404).json({ message: 'Not found' });
@@ -78,7 +78,7 @@ router.get('/series/:seriesId/video', streamLimiter, authenticate, async (req, r
   }
 });
 
-router.get('/series/:seriesId/subtitle/:fileName', streamLimiter, authenticate, async (req, res) => {
+router.get('/series/:seriesId/subtitle/:fileName', streamLimiter, optionalAuth, async (req, res) => {
   const s = await Series.findById(req.params.seriesId);
   if (!s || !s.subtitleFile) return res.status(404).json({ message: 'Not found' });
   if (!(await assertSeriesPlayable(s, req.user))) return res.status(404).json({ message: 'Not found' });

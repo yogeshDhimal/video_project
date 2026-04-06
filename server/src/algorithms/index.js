@@ -1,36 +1,78 @@
 /**
- * Barrel export for scoring & search helpers.
- * Domain logic lives in subfolders: recommendation/, trending/, etc.
+ * Barrel export for all ClickWatch algorithms.
+ *
+ * ┌──────────────────────────────────────────────────┐
+ * │  collaborative-filtering/  → SVD + Pearson       │
+ * │  content-based-filtering/  → TF-IDF + Cosine     │
+ * │  hybrid-recommendation/    → Weighted Fusion      │
+ * │  trending/                 → Dynamic Trending     │
+ * │  engagement/               → Engagement Score     │
+ * │  fuzzy-search/             → Levenshtein Distance │
+ * │  continue-watching/        → Progress Threshold   │
+ * │  video-streaming/          → HTTP Range Chunking  │
+ * │  shared/                   → Normalization Utils  │
+ * └──────────────────────────────────────────────────┘
  */
 
-const { RECOMMENDATION_WEIGHTS, recommendationScore } = require('./recommendation');
-const { TRENDING_WEIGHTS, trendingScoreRaw, calculateDynamicTrending } = require('./trending');
-const { isContinueWatching } = require('./continue-watching');
-const { engagementScore } = require('./engagement');
-const { norm } = require('./shared/normalization');
-const { calculateVideoRange } = require('./video-streaming');
+// ── Collaborative Filtering (Pearson + SVD) ──
+const { buildRatingMatrix, getCollaborativeRecommendations, getSVDRecommendations, invalidateRatingMatrixCache } = require('./collaborative-filtering');
+
+// ── Content-Based Filtering (TF-IDF + Cosine Similarity) ──
+const { findSimilarSeries, cosineSimilarity, tokenize, computeTF, computeIDF, buildTFIDFVector } = require('./content-based-filtering');
+
+// ── Hybrid Recommendation Engine ──
 const { calculateHybridScore } = require('./hybrid-recommendation');
-const { findSimilarSeries, cosineSimilarity, tokenize, computeTF, computeIDF, buildTFIDFVector } = require('./content-similarity');
-const { buildRatingMatrix, getCollaborativeRecommendations, getSVDRecommendations } = require('./collaborative-filtering');
+
+// ── Trending ──
+const { TRENDING_WEIGHTS, trendingScoreRaw, calculateDynamicTrending } = require('./trending');
+
+// ── Engagement ──
+const { engagementScore } = require('./engagement');
+
+// ── Continue Watching ──
+const { isContinueWatching } = require('./continue-watching');
+
+// ── Fuzzy Search (Levenshtein) ──
+// Imported directly where needed (search route)
+
+// ── Video Streaming ──
+const { calculateVideoRange } = require('./video-streaming');
+
+// ── Shared Utilities ──
+const { norm } = require('./shared/normalization');
 
 module.exports = {
-  RECOMMENDATION_WEIGHTS,
-  TRENDING_WEIGHTS,
-  recommendationScore,
-  trendingScoreRaw,
-  calculateDynamicTrending,
-  isContinueWatching,
-  engagementScore,
-  norm,
-  calculateVideoRange,
-  calculateHybridScore,
+  // Collaborative Filtering
+  buildRatingMatrix,
+  getCollaborativeRecommendations,
+  getSVDRecommendations,
+  invalidateRatingMatrixCache,
+
+  // Content-Based Filtering
   findSimilarSeries,
   cosineSimilarity,
   tokenize,
   computeTF,
   computeIDF,
   buildTFIDFVector,
-  buildRatingMatrix,
-  getCollaborativeRecommendations,
-  getSVDRecommendations,
+
+  // Hybrid
+  calculateHybridScore,
+
+  // Trending
+  TRENDING_WEIGHTS,
+  trendingScoreRaw,
+  calculateDynamicTrending,
+
+  // Engagement
+  engagementScore,
+
+  // Continue Watching
+  isContinueWatching,
+
+  // Video Streaming
+  calculateVideoRange,
+
+  // Shared
+  norm,
 };

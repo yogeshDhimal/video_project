@@ -11,37 +11,54 @@ const router = express.Router({ mergeParams: true });
 
 router.get('/', optionalAuth, async (req, res) => {
   const { episodeId } = req.params;
-  const top = await Comment.find({ episodeId, parentId: null }).sort({ createdAt: -1 }).limit(100).lean();
-  const ids = top.map((c) => c._id);
-  const replies = await Comment.find({ parentId: { $in: ids } }).sort({ createdAt: 1 }).lean();
-  const users = await User.find({
-    _id: { $in: [...top, ...replies].map((c) => c.userId) },
-  })
-    .select('username avatar')
-    .lean();
-  const umap = Object.fromEntries(users.map((u) => [u._id.toString(), u]));
+  const allComments = await Comment.find({ episodeId }).sort({ createdAt: -1 }).lean();
+  
+  if (!allComments.length) return res.json({ comments: [] });
+
+  const userIds = [...new Set(allComments.map(c => c.userId.toString()))];
+  const users = await User.find({ _id: { $in: userIds } }).select('username avatar').lean();
+  const umap = Object.fromEntries(users.map(u => [u._id.toString(), u]));
 
   let userVotes = {};
   if (req.user) {
-    const allCommentIds = [...top, ...replies].map((c) => c._id);
-    const votes = await CommentVote.find({ userId: req.user._id, commentId: { $in: allCommentIds } }).lean();
-    userVotes = Object.fromEntries(votes.map((v) => [v.commentId.toString(), v.value]));
+    const votes = await CommentVote.find({ 
+      userId: req.user._id, 
+      commentId: { $in: allComments.map(c => c._id) } 
+    }).lean();
+    userVotes = Object.fromEntries(votes.map(v => [v.commentId.toString(), v.value]));
   }
 
-  const repByParent = {};
-  replies.forEach((r) => {
-    const k = r.parentId.toString();
-    if (!repByParent[k]) repByParent[k] = [];
-    repByParent[k].push({ ...r, user: umap[r.userId.toString()], userVote: userVotes[r._id.toString()] || 0 });
-  });
-  res.json({
-    comments: top.map((c) => ({
+  // 1. Map all comments with extra fields
+  const cMap = {};
+  allComments.forEach(c => {
+    cMap[c._id.toString()] = {
       ...c,
       user: umap[c.userId.toString()],
       userVote: userVotes[c._id.toString()] || 0,
-      replies: repByParent[c._id.toString()] || [],
-    })),
+      replies: []
+    };
   });
+
+  // 2. Nesting logic
+  const roots = [];
+  allComments.forEach(c => {
+    const mapped = cMap[c._id.toString()];
+    if (c.parentId) {
+      const p = cMap[c.parentId.toString()];
+      if (p) {
+        p.replies.push(mapped);
+        // Sort replies chronologically
+        p.replies.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      } else {
+        // Parent not found (perhaps deleted), treat as root or skip
+        roots.push(mapped);
+      }
+    } else {
+      roots.push(mapped);
+    }
+  });
+
+  res.json({ comments: roots });
 });
 
 router.post(

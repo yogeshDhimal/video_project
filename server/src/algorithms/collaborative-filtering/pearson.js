@@ -42,8 +42,17 @@ function calculatePearsonCorrelation(ratingsA, ratingsB) {
 
   const denominator = Math.sqrt(stdDevSquareA) * Math.sqrt(stdDevSquareB);
   
-  // Prevent division by zero if ratings are perfectly uniform
-  if (denominator === 0) return 0;
+  // Prevent division by zero if ratings are perfectly uniform (e.g. only 5-star ratings)
+  if (denominator === 0) {
+    let identical = true;
+    for (const item of sharedItems) {
+      if (ratingsA[item] !== ratingsB[item]) {
+        identical = false;
+        break;
+      }
+    }
+    return identical ? 1 : 0;
+  }
 
   // Result bounds between -1.0 (perfectly opposite) and 1.0 (perfectly matched)
   return covariance / denominator;

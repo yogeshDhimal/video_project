@@ -4,7 +4,8 @@ const WatchHistory = require('../models/WatchHistory');
 const Episode = require('../models/Episode');
 const Season = require('../models/Season');
 const Series = require('../models/Series');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuth } = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/asyncHandler');
 const { isContinueWatching } = require('../algorithms');
 
 const router = express.Router();
@@ -46,7 +47,7 @@ router.get('/', authenticate, async (req, res) => {
 
 router.post(
   '/progress',
-  authenticate,
+  optionalAuth,
   [
     body('episodeId').notEmpty(),
     body('progressSeconds').isFloat({ min: 0 }),
@@ -61,6 +62,8 @@ router.post(
     const progressSeconds = req.body.progressSeconds;
     const ratio = durationSeconds > 0 ? progressSeconds / durationSeconds : 0;
     const completed = ratio >= 0.95;
+
+    if (!req.user) return res.json({ ok: true }); // No-op for guests
 
     const doc = await WatchHistory.findOneAndUpdate(
       { userId: req.user._id, episodeId: ep._id },

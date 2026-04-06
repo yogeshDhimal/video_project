@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .comment-connector-v {
+    @apply absolute left-[15px] top-[2.5rem] bottom-[1rem] w-[2px] bg-slate-200 dark:bg-white/10;
+  }
+  .comment-connector-h {
+    @apply absolute left-[15px] top-[1.25rem] w-[12px] h-[2px] bg-slate-200 dark:bg-white/10 rounded-bl-lg;
+  }
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;

@@ -1,5 +1,5 @@
-const { tokenize, computeTF, computeIDF, buildTFIDFVector, cosineSimilarity, findSimilarSeries } = require('./src/algorithms/content-similarity');
-const { levenshteinDistance, createFuzzyIndex } = require('./src/algorithms/fuzzy-search');
+const { tokenize, computeTF, computeIDF, buildTFIDFVector, cosineSimilarity, findSimilarSeries } = require('../src/algorithms/content-based-filtering');
+const { levenshteinDistance, createFuzzyIndex } = require('../src/algorithms/fuzzy-search');
 
 console.log('\n===== TF-IDF COSINE SIMILARITY TEST =====');
 const s1 = { _id: '1', title: 'Sci-Fi Space', description: 'A journey through cosmos and nebula stars', genres: ['Sci-Fi'], tags: [] };

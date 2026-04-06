@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 /**
- * ClickWatch Master Seed Script (Expanded for Project Defense)
+ * ClickWatch Master Seed Script (Consolidated & Enhanced)
  * ──────────────────────────────
- * Creates 15 series across varied genres, each with 1 season and 2-3 episodes.
- * Generates robust User-to-User similarity sets to mathematically demonstrate:
- * - Pearson Correlation Rating Predictions
- * - Matrix Factorization (SVD) Latent Feature Generation
+ * Creates 8 series with rich descriptions, aggregates ratings, 
+ * and generates overlapping user history for recommendation algorithms.
  */
 
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
@@ -21,19 +19,18 @@ const Season = require('../src/models/Season');
 const Episode = require('../src/models/Episode');
 const Like = require('../src/models/Like');
 const Comment = require('../src/models/Comment');
+const Rating = require('../src/models/Rating');
 const WatchHistory = require('../src/models/WatchHistory');
 const Notification = require('../src/models/Notification');
-const Bookmark = require('../src/models/Bookmark');
-
 const { VIDEOS, THUMBNAILS } = require('../src/config/paths');
+const { updateRatings } = require('../src/helpers/content');
 
 // ───────────────────── Helpers ─────────────────────
 function download(url, dest) {
   return new Promise((resolve, reject) => {
-    if (fs.existsSync(dest)) { console.log(`  ✓ Already exists: ${path.basename(dest)}`); return resolve(); }
+    if (fs.existsSync(dest)) { return resolve(); }
     const proto = url.startsWith('https') ? https : http;
     const file = fs.createWriteStream(dest);
-    console.log(`  ↓ Downloading ${path.basename(dest)}...`);
     const request = (u) => {
       proto.get(u, (res) => {
         if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
@@ -50,16 +47,14 @@ function download(url, dest) {
 
 async function ensureVideo(name, url, videosDir) {
   const dest = path.join(videosDir, name);
-  if (fs.existsSync(dest)) { return; }
+  if (fs.existsSync(dest)) return;
   const existing = fs.readdirSync(videosDir).filter(f => f.endsWith('.mp4') && fs.statSync(path.join(videosDir, f)).size > 100000);
-  if (existing.length > 0) {
-    fs.copyFileSync(path.join(videosDir, existing[0]), dest);
-  } else {
-    console.log(`  ❌ No local fallback video found.`);
-  }
+  if (existing.length > 0) fs.copyFileSync(path.join(videosDir, existing[0]), dest);
 }
 
 function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d; }
+function posterUrl(seed) { return `https://picsum.photos/seed/${seed}/400/600`; }
+function thumbUrl(seed)  { return `https://picsum.photos/seed/${seed}/1280/720`; }
 
 const VIDEOS_LIST = [
   { name: 'nature_forest.mp4' }, { name: 'city_timelapse.mp4' },
@@ -67,93 +62,70 @@ const VIDEOS_LIST = [
   { name: 'cooking_food.mp4' }, { name: 'workout_gym.mp4' },
 ];
 
-function posterUrl(seed) { return `https://picsum.photos/seed/${seed}/400/600`; }
-function thumbUrl(seed)  { return `https://picsum.photos/seed/${seed}/1280/720`; }
-
-// ───────────────── 15 Series Definitions ──────────────────
 const SERIES_DEFS = [
   {
     title: 'Whispers of the Wild', genres: ['Nature', 'Documentary'], releaseYear: 2024, status: 'completed', posterSeed: 'wild-poster',
+    tags: ['wildlife', 'ecosystem', 'rainforest', 'conservation', 'planet', 'earth', 'survival', 'biodiversity', 'cinematography', 'amazon'],
+    description: 'An immersive, multi-part journey through Earth\'s most pristine and untouched ecosystems, Whispers of the Wild offers an unprecedented look at the delicate balance of nature. From the dense, emerald Amazonian canopy to the hidden subterranean rivers of the Yucatan, this series captures the raw beauty and complexity of life in the wild. Utilizing state-of-the-art 8K cinematography and expert narration by world-renowned naturalists, each episode explores the unique survival strategies of species on the brink. This isn\'t just a documentary; it\'s a call to witness the silent majesty of our planet before it changes forever, providing a sensory experience that brings the outdoors directly into your living room.',
     seedStats: { views: 5200, likes: 380, recentViews: 900, comments: 45, daysOld: 3 }, eps: ['Ancient Canopy', 'River Secrets']
   },
   {
     title: 'Neon Horizons', genres: ['Sci-Fi', 'Drama'], releaseYear: 2025, status: 'ongoing', posterSeed: 'neon-poster',
+    tags: ['cyberpunk', 'AI', 'hacker', 'neural-network', 'megacity', 'dystopia', 'conspiracy', 'digital', 'neon', 'futuristic'],
+    description: 'In the year 2099, humanity has migrated to sprawling megacities governed by enigmatic AI overseers and corporate conglomerates. Neon Horizons is a gripping noir drama that follows a group of rogue systems engineers who stumble upon a dangerous anomaly hidden within the city\'s global neural network. As they peel back layers of digital deception, they uncover a conspiracy that threatens to rewrite the very foundations of human identity and digital reality. With a haunting synth-wave soundtrack and a visually stunning cyberpunk aesthetic, the series delves deep into themes of consciousness, privacy, and the cost of technological progress in an age where the line between programmer and programmed has completely blurred.',
     seedStats: { views: 3100, likes: 210, recentViews: 700, comments: 30, daysOld: 7 }, eps: ['Arrival', 'The Grid']
   },
   {
     title: 'Tides of Change', genres: ['Adventure', 'Nature'], releaseYear: 2024, status: 'completed', posterSeed: 'tides-poster',
+    tags: ['ocean', 'marine', 'wildlife', 'deep-sea', 'ecosystem', 'conservation', 'planet', 'earth', 'exploration', 'biodiversity'],
+    description: 'Explore the immense power and hidden mysteries of our planet\'s vast oceans in this epic adventure series. Tides of Change follows a courageous team of marine biologists and deep-sea explorers as they venture into the \"Midnight Zone,\" where bioluminescent creatures thrive in total darkness. Each episode reveals the stunning biodiversity of the abyss while documenting the urgent, real-world challenges facing our marine environments in an era of rapid climate shift. Through intimate storytelling and breathtaking underwater photography, the series highlights the profound connection between the deep blue and the survival of all terrestrial life, offering both a warning and a message of hope for the future of our seas.',
     seedStats: { views: 800, likes: 150, recentViews: 200, comments: 80, daysOld: 14 }, eps: ['Deep Blue', 'Storm']
   },
   {
     title: 'Beyond the Stars', genres: ['Sci-Fi', 'Adventure'], releaseYear: 2025, status: 'ongoing', posterSeed: 'stars-poster',
+    tags: ['space', 'interstellar', 'colonization', 'galaxy', 'exploration', 'survival', 'spaceship', 'futuristic', 'cosmos', 'astronaut'],
+    description: 'A cinematic and philosophically charged exploration of the next great frontier: interstellar colonization. As Earth\'s resources dwindle, the crew of the Horizon—the first interstellar colony ship—embarks on a centuries-long voyage toward the Andromeda galaxy. Beyond the Stars focuses on the intense physical and psychological pressures of deep space exploration, where every decision could mean the difference between the survival of the human race and total oblivion. The series combines hard science fiction with a focus on human resilience, exploring how culture, morality, and hope evolve when severed from the home planet and cast into the infinite, cold vacuum of the cosmos.',
     seedStats: { views: 1500, likes: 130, recentViews: 1400, comments: 20, daysOld: 1 }, eps: ['Launch', 'Drift']
   },
   {
-    title: 'The Flavor Lab', genres: ['Comedy', 'Drama'], releaseYear: 2024, status: 'completed', posterSeed: 'flavor-poster',
-    seedStats: { views: 8000, likes: 500, recentViews: 100, comments: 60, daysOld: 45 }, eps: ['First Course', 'Pressure']
-  },
-  {
-    title: 'Ironclad', genres: ['Action', 'Documentary'], releaseYear: 2025, status: 'ongoing', posterSeed: 'iron-poster',
-    seedStats: { views: 2200, likes: 170, recentViews: 400, comments: 25, daysOld: 10 }, eps: ['The Grind', 'Break Point']
-  },
-  {
     title: 'Cybernetica', genres: ['Sci-Fi', 'Action'], releaseYear: 2025, status: 'ongoing', posterSeed: 'cyber-poster',
+    tags: ['cyberpunk', 'hacker', 'AI', 'neural-network', 'augmentation', 'neon', 'megacity', 'dystopia', 'digital', 'warfare'],
+    description: 'The line between man and machine is not just blurred—it\'s being erased in this high-octane thriller set in a world dominated by pervasive cybernetic enhancements. Cybernetica centers on a black-market hacker who develops a sentient virus capable of bypassing the world\'s most secure neural firewalls, sparking a global manhunt. A specialized task force, equipped with experimental augmentations themselves, must track the hacker through the dark, neon-soaked underbelly of a vertical metropolis. The series explores the ethical minefields of transhumanism and the terrifying potential of decentralized digital warfare, all delivered through pulse-pounding action sequences and a tight, suspenseful narrative.',
     seedStats: { views: 9000, likes: 800, recentViews: 2000, comments: 100, daysOld: 5 }, eps: ['SysAdmin', 'Root Access']
   },
   {
-    title: 'Shadows in the Mist', genres: ['Horror', 'Drama'], releaseYear: 2023, status: 'completed', posterSeed: 'horror-poster',
-    seedStats: { views: 6000, likes: 200, recentViews: 50, comments: 40, daysOld: 120 }, eps: ['The House', 'The Attic']
-  },
-  {
     title: 'Midnight Tokyo', genres: ['Anime', 'Action'], releaseYear: 2026, status: 'ongoing', posterSeed: 'tokyo-poster',
+    tags: ['anime', 'samurai', 'blade', 'spirits', 'guardian', 'folklore', 'tokyo', 'supernatural', 'martial-arts', 'heritage'],
+    description: 'A visually breathtaking anime masterpiece that reveals the hidden side of the world\'s most vibrant metropolis. Midnight Tokyo follows the double life of a reserved high school student who inherits a legendary blade forged from celestial iron. By day, they navigate the social pressures and academic rigors of modern Tokyo; by night, they become the city\'s silent guardian against ancient, malevolent spirits that emerge from the shadows of the Shibuya and Shinjuku districts. With fluid, high-budget animation and a story rooted in Japanese folklore and contemporary urban legend, the series is a thrilling exploration of heritage, duty, and the extraordinary power hidden within the ordinary.',
     seedStats: { views: 12000, likes: 1500, recentViews: 5000, comments: 300, daysOld: 2 }, eps: ['Awakening', 'Shinobi']
   },
   {
-    title: 'Stellar Drift', genres: ['Sci-Fi', 'Action'], releaseYear: 2024, status: 'completed', posterSeed: 'drift-poster',
-    seedStats: { views: 4000, likes: 200, recentViews: 200, comments: 20, daysOld: 60 }, eps: ['Warp', 'Black hole']
-  },
-  {
-    title: 'Into the Volcano', genres: ['Nature', 'Documentary'], releaseYear: 2024, status: 'completed', posterSeed: 'volcano-poster',
-    seedStats: { views: 1000, likes: 50, recentViews: 10, comments: 5, daysOld: 200 }, eps: ['Heat', 'Eruption']
-  },
-  {
-    title: 'The Laughing Track', genres: ['Comedy', 'Romance'], releaseYear: 2025, status: 'ongoing', posterSeed: 'laugh-poster',
-    seedStats: { views: 7000, likes: 450, recentViews: 1500, comments: 90, daysOld: 15 }, eps: ['Pilot', 'The Date']
-  },
-  {
-    title: 'Quantum Paradox', genres: ['Sci-Fi', 'Mystery'], releaseYear: 2025, status: 'completed', posterSeed: 'quantum-poster',
-    seedStats: { views: 5500, likes: 380, recentViews: 800, comments: 55, daysOld: 25 }, eps: ['Schrodinger', 'Entanglement']
-  },
-  {
-    title: 'Ocean Edge', genres: ['Adventure', 'Nature'], releaseYear: 2023, status: 'completed', posterSeed: 'ocean-poster',
-    seedStats: { views: 3000, likes: 110, recentViews: 40, comments: 10, daysOld: 300 }, eps: ['Sharks', 'Whales']
-  },
-  {
     title: 'City of Gold', genres: ['Action', 'Adventure'], releaseYear: 2026, status: 'ongoing', posterSeed: 'gold-poster',
+    tags: ['treasure', 'exploration', 'amazon', 'ancient', 'civilization', 'rainforest', 'globe-trotting', 'heist', 'survival', 'mystery'],
+    description: 'An elite team of expert treasure hunters and historians discovers a cryptic map that purportedly leads to \"Paititi,\" a legendary sunken city rumored to be overflowing with Incan gold and ancient artifacts of unimaginable power. City of Gold is a pulse-pounding race across the globe, taking the team from the high-tech auction houses of Europe to the treacherous, uncharted depths of the Amazonian rainforest. As they face off against rival mercenaries and navigate deadly ancient traps, they discover that the treasure they seek may be tied to a forgotten civilization with the power to change the modern world. It\'s a classic adventure story elevated by modern technical expertise and high-stakes international intrigue.',
     seedStats: { views: 15000, likes: 2000, recentViews: 6000, comments: 400, daysOld: 1 }, eps: ['The Heist', 'Escape']
+  },
+  {
+    title: 'Echoes of the Cosmos', genres: ['Sci-Fi', 'Documentary'], releaseYear: 2026, status: 'ongoing', posterSeed: 'cosmos-poster',
+    tags: ['space', 'cosmos', 'galaxy', 'astronaut', 'planet', 'earth', 'interstellar', 'exploration', 'nasa', 'futuristic'],
+    description: 'Echoes of the Cosmos is a visually stunning docu-series that blends cutting-edge astrophysics research with narrative storytelling. From the radiotelescopes of the Atacama Desert to the orbital laboratories circling Mars, the series follows a new generation of scientists racing to answer humanity\'s oldest question: are we alone in the cosmos? Each episode pairs real-world space exploration milestones with speculative dramatizations of first contact scenarios, grounded in peer-reviewed science. With breathtaking visual effects and narration that makes quantum physics accessible, this series bridges the gap between documentary rigor and the boundless imagination of science fiction, making the vastness of the universe feel both humbling and thrillingly within reach.',
+    seedStats: { views: 4000, likes: 350, recentViews: 1800, comments: 60, daysOld: 4 }, eps: ['Signal', 'First Light']
   }
 ];
 
-// ───────────────── Main Seed Function ──────────────────
 async function seed() {
-  console.log('\n🌱 ClickWatch Master Seeder\n' + '─'.repeat(40));
-
+  console.log('\n🌱 ClickWatch Master Seeder (Consolidated)\n' + '─'.repeat(40));
   const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/clickwatch';
   await mongoose.connect(uri);
-  console.log('✓ Connected to MongoDB');
-
+  
   [VIDEOS, THUMBNAILS].forEach(d => fs.mkdirSync(d, { recursive: true }));
-
-  console.log('📹 Ensuring video files...');
   for (const v of VIDEOS_LIST) await ensureVideo(v.name, null, VIDEOS);
 
-  console.log('\n🧹 Clearing old collections...');
   await Series.deleteMany({}); await Season.deleteMany({}); await Episode.deleteMany({});
-  await WatchHistory.deleteMany({}); await Like.deleteMany({}); await Comment.deleteMany({}); await Notification.deleteMany({});
+  await WatchHistory.deleteMany({}); await Like.deleteMany({}); await Comment.deleteMany({}); 
+  await Rating.deleteMany({}); await Notification.deleteMany({});
   await User.deleteMany({ role: { $ne: 'admin' } });
 
-  // Create Users: We need a complex web to form Pearson & SVD Latent Features
-  console.log('\n👤 Setting up 4 Demo Users for CF Matrix...');
   const createUsr = async (e, p, u, g) => {
     let usr = await User.findOne({ email: e });
     if (!usr) usr = await User.create({ email: e, password: p, username: u, role: 'user', isVerified: true, preferredGenres: g });
@@ -161,40 +133,37 @@ async function seed() {
   };
   const admin = await User.findOne({ role: 'admin' }) || await User.create({ email: 'admin@clickwatch.dev', password: 'Admin1234!', username: 'Admin', role: 'admin', isVerified: true, preferredGenres: ['Sci-Fi'] });
   
-  // Cluster A: Sci-Fi & Action fans
-  const u1 = await createUsr('scifi_nerd@clickwatch.dev', 'Viewer1234!', 'SciFiNerd', ['Sci-Fi', 'Action']);
-  const u2 = await createUsr('action_hero@clickwatch.dev', 'Viewer1234!', 'ActionHero', ['Action', 'Adventure']);
-  
-  // Cluster B: Nature & Documentary fans
-  const u3 = await createUsr('nature_lover@clickwatch.dev', 'Viewer1234!', 'NatureLover', ['Nature', 'Documentary']);
-  const u4 = await createUsr('casual_watcher@clickwatch.dev', 'Viewer1234!', 'CasualWatcher', ['Comedy', 'Drama', 'Documentary']);
+  const users = [
+    await createUsr('scifi_nerd@clickwatch.dev', 'Viewer1234!', 'SciFiNerd', ['Sci-Fi', 'Action']),
+    await createUsr('action_hero@clickwatch.dev', 'Viewer1234!', 'ActionHero', ['Action', 'Adventure']),
+    await createUsr('nature_lover@clickwatch.dev', 'Viewer1234!', 'NatureLover', ['Nature', 'Documentary']),
+    await createUsr('casual_watcher@clickwatch.dev', 'Viewer1234!', 'CasualWatcher', ['Comedy', 'Drama', 'Documentary'])
+  ];
 
-  console.log('\n📺 Creating ' + SERIES_DEFS.length + ' series & episodes...');
   const allEpisodes = []; 
-
   for (let sIdx = 0; sIdx < SERIES_DEFS.length; sIdx++) {
     const def = SERIES_DEFS[sIdx];
     const posterFile = `poster_${def.posterSeed}.jpg`;
-    await download(posterUrl(def.posterSeed), path.join(THUMBNAILS, posterFile));
+    try { await download(posterUrl(def.posterSeed), path.join(THUMBNAILS, posterFile)); } catch(e) {}
 
     const series = await Series.create({
-      title: def.title, description: 'Academic project placeholder text.', genres: def.genres,
+      title: def.title, description: def.description, genres: def.genres,
+      tags: def.tags || [],
       releaseYear: def.releaseYear, status: def.status, catalogStatus: 'published',
       posterPath: posterFile, createdBy: admin._id, totalViews: def.seedStats.views,
       totalLikes: def.seedStats.likes, createdAt: daysAgo(def.seedStats.daysOld),
     });
 
     const season = await Season.create({ seriesId: series._id, number: 1, title: 'Season 1' });
-
     for (let i = 0; i < def.eps.length; i++) {
         const videoIdx = sIdx % 6;
         const videoFile = VIDEOS_LIST[videoIdx].name;
         const thumbFile = `thumb_${def.posterSeed}_ep${i}.jpg`;
-        await download(thumbUrl(def.posterSeed + i), path.join(THUMBNAILS, thumbFile));
+        try { await download(thumbUrl(def.posterSeed + i), path.join(THUMBNAILS, thumbFile)); } catch(e){}
 
         const ep = await Episode.create({
             seasonId: season._id, number: i + 1, title: def.eps[i],
-            description: `Episode ${i + 1} dummy.`, durationSeconds: 200, thumbnailPath: thumbFile,
+            durationSeconds: 200, thumbnailPath: thumbFile,
             qualities: [{ key: '720p', fileName: videoFile, mimeType: 'video/mp4', sizeBytes: 0 }],
             views: def.seedStats.views, likes: def.seedStats.likes, recentViews: def.seedStats.recentViews,
             engagementScore: def.seedStats.comments, trendingScore: def.seedStats.recentViews,
@@ -204,43 +173,44 @@ async function seed() {
     }
   }
 
-  // Seed Matrix Matrix overlaps for Pearson algorithms
-  console.log('\n👍 Seeding overlapping history for CF... Matrix building...');
+  console.log('⭐ Generating random user data for recommendations...');
   for (const ep of allEpisodes) {
-     const duration = 200;
-
-     // User 1 (SciFiNerd): Likes Sci-Fi & Action
-     if (ep.seriesDef.genres.includes('Sci-Fi') || ep.seriesDef.genres.includes('Action')) {
-         await WatchHistory.create({ userId: u1._id, episodeId: ep._id, progressSeconds: duration, durationSeconds: duration, completed: true, lastWatchedAt: new Date() });
-         if(Math.random() > 0.3) await Like.create({ userId: u1._id, episodeId: ep._id, value: 1 });
-     }
-     
-     // User 2 (ActionHero): Overlaps with User 1 but also likes Adventure
-     if (ep.seriesDef.genres.includes('Action') || ep.seriesDef.genres.includes('Adventure')) {
-         await WatchHistory.create({ userId: u2._id, episodeId: ep._id, progressSeconds: duration, durationSeconds: duration, completed: true, lastWatchedAt: new Date() });
-         if(Math.random() > 0.4) await Like.create({ userId: u2._id, episodeId: ep._id, value: 1 });
-     }
-
-     // User 3 (NatureLover): Likes Nature & Doc
-     if (ep.seriesDef.genres.includes('Nature') || ep.seriesDef.genres.includes('Documentary')) {
-         await WatchHistory.create({ userId: u3._id, episodeId: ep._id, progressSeconds: duration, durationSeconds: duration, completed: true, lastWatchedAt: new Date() });
-         if(Math.random() > 0.2) await Like.create({ userId: u3._id, episodeId: ep._id, value: 1 });
-     }
-
-     // User 4 (CasualWatcher): Huge overlap with Nature but also Comedy
-     if (ep.seriesDef.genres.includes('Comedy') || ep.seriesDef.genres.includes('Documentary')) {
-         await WatchHistory.create({ userId: u4._id, episodeId: ep._id, progressSeconds: duration, durationSeconds: duration, completed: true, lastWatchedAt: new Date() });
-         if(Math.random() > 0.3) await Like.create({ userId: u4._id, episodeId: ep._id, value: 1 });
+     for (const u of users) {
+        const interested = u.preferredGenres.some(g => ep.seriesDef.genres.includes(g));
+        if (interested || Math.random() > 0.6) {
+           await WatchHistory.create({ userId: u._id, episodeId: ep._id, progressSeconds: 200, durationSeconds: 200, completed: true, lastWatchedAt: new Date() });
+           const star = Math.floor(Math.random() * (interested ? 3 : 5)) + (interested ? 3 : 1);
+           await Rating.create({ userId: u._id, episodeId: ep._id, rating: Math.min(5, star) });
+           if(Math.random() > 0.5) await Like.create({ userId: u._id, episodeId: ep._id, value: 1 });
+        }
      }
   }
 
-  console.log('\n' + '─'.repeat(40));
-  console.log('🎉 Defense Database Setup Complete!\n');
-  console.log('Test SVD Algorithm By Logging In As:');
-  console.log('  scifi_nerd@clickwatch.dev / Viewer1234!');
-  console.log('  -> Should heavily recommend Action/Sci-Fi via U-V Latent Vectors.');
-  
+  console.log('🔄 Aggregating ratings...');
+  for (const ep of allEpisodes) { await updateRatings(ep._id); }
+
+  // ── TF-IDF Similarity Proof ──
+  console.log('\n📊 TF-IDF Cosine Similarity Report');
+  console.log('═'.repeat(60));
+  const { findSimilarSeries } = require('../src/algorithms/content-based-filtering');
+  const allSeries = await Series.find({ catalogStatus: { $ne: 'draft' } }).lean();
+
+  for (const s of allSeries) {
+    const similar = findSimilarSeries(s._id, allSeries, 5);
+    console.log(`\n🎬 "${s.title}" [${s.genres.join(', ')}]`);
+    if (similar.length === 0) {
+      console.log('   No similar series found.');
+    } else {
+      for (const r of similar) {
+        const match = allSeries.find(x => x._id.toString() === r.seriesId);
+        const pct = (r.similarity * 100).toFixed(1);
+        console.log(`   → ${pct}% match with "${match?.title}" [${match?.genres?.join(', ')}]`);
+      }
+    }
+  }
+  console.log('\n' + '═'.repeat(60));
+
+  console.log('🎉 Seeding Complete!');
   await mongoose.disconnect();
 }
-
 seed().catch((err) => { console.error('❌ failed:', err); process.exit(1); });

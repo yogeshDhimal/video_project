@@ -26,7 +26,6 @@ const episodeSchema = new mongoose.Schema(
     seasonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Season', required: true, index: true },
     number: { type: Number, required: true },
     title: { type: String, required: true, trim: true },
-    description: { type: String, default: '' },
     durationSeconds: { type: Number, default: 0 },
     thumbnailPath: { type: String, default: '' },
     qualities: [qualitySchema],
@@ -48,6 +47,6 @@ const episodeSchema = new mongoose.Schema(
 );
 
 episodeSchema.index({ seasonId: 1, number: 1 }, { unique: true });
-episodeSchema.index({ title: 'text', description: 'text' });
+episodeSchema.index({ title: 'text' });
 
 module.exports = mongoose.model('Episode', episodeSchema);

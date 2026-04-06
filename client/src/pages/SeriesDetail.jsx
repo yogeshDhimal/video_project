@@ -143,26 +143,20 @@ export default function SeriesDetail() {
       {series.videoFile && (
         <div className="mb-12">
           <h2 className="font-display text-xl font-semibold text-slate-900 dark:text-white mb-4">Watch Movie</h2>
-          {!token || !user ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-6 text-amber-900 text-sm dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
-              Log in to stream protected video URLs.
-            </div>
-          ) : (
-            <VideoPlayer
-              isSeries={true}
-              episode={{
-                _id: series._id,
-                title: series.title,
-                durationSeconds: 0,
-                qualities: [],
-                subtitles: series.subtitleFile
-                  ? [{ lang: 'en', label: 'English', fileName: series.subtitleFile, format: series.subtitleFile.endsWith('.srt') ? 'srt' : 'vtt' }]
-                  : [],
-              }}
-              token={token}
-              autoNextEnabled={false}
-            />
-          )}
+          <VideoPlayer
+            isSeries={true}
+            episode={{
+              _id: series._id,
+              title: series.title,
+              durationSeconds: 0,
+              qualities: [],
+              subtitles: series.subtitleFile
+                ? [{ lang: 'en', label: 'English', fileName: series.subtitleFile, format: series.subtitleFile.endsWith('.srt') ? 'srt' : 'vtt' }]
+                : [],
+            }}
+            token={token}
+            autoNextEnabled={false}
+          />
         </div>
       )}
 

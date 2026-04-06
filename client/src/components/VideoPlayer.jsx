@@ -171,8 +171,9 @@ export default function VideoPlayer({
       <video
         ref={videoRef}
         key={src}
-        className="w-full aspect-video bg-black"
+        className="w-full aspect-video bg-black cursor-pointer"
         src={src}
+        onClick={togglePlay}
         playsInline
         preload="metadata"
         onEnded={() => {
