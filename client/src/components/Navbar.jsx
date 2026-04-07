@@ -15,7 +15,7 @@ const link = ({ isActive }) =>
   }`;
 
 export default function Navbar() {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -185,7 +185,10 @@ export default function Navbar() {
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <ThemeToggle />
-          {user ? (
+          
+          {loading ? (
+            <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-white/5 animate-pulse border border-slate-300/30 dark:border-white/5" />
+          ) : user ? (
             <div className="flex items-center gap-2 sm:gap-3">
               <WatchlistDropdown />
               <NotificationsDropdown />
@@ -247,7 +250,7 @@ export default function Navbar() {
               </div>
             </div>
           ) : (
-            <>
+            <div className="flex items-center gap-2 group animate-in fade-in slide-in-from-right-4 duration-500">
               <Link
                 to="/login"
                 className="text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white px-2 transition-colors"
@@ -260,9 +263,10 @@ export default function Navbar() {
               >
                 Sign up
               </Link>
-            </>
+            </div>
           )}
         </div>
+
 
         {/* Mobile Menu Toggle Button */}
         <button

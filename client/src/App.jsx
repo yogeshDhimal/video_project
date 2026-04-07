@@ -83,8 +83,9 @@ function AppContent() {
           </Routes>
         </Suspense>
       </main>
-      <Footer />
+      {!location.pathname.startsWith('/admin') && <Footer />}
     </div>
+
   );
 }
 

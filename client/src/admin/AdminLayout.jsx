@@ -90,11 +90,12 @@ export default function AdminLayout() {
         ))}
       </div>
 
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-72 shrink-0 flex-col border-r border-slate-200/90 bg-gradient-to-b from-slate-50 to-white dark:from-charcoal-950 dark:to-charcoal-900 dark:border-white/10">
+      {/* Desktop sidebar — Sticky implementation */}
+      <aside className="hidden lg:flex w-72 shrink-0 flex-col border-r border-slate-200/90 bg-gradient-to-b from-slate-50 to-white dark:from-charcoal-950 dark:to-charcoal-900 dark:border-white/10 sticky top-[4.25rem] h-[calc(100vh-4.25rem)] overflow-y-auto custom-scrollbar">
         <div className="p-6 border-b border-slate-100 dark:border-white/5">
         </div>
-        <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-6">
+
           {navGroups.map((group) => (
             <div key={group.label}>
               <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
