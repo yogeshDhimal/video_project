@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
+import ConfirmModal from '../components/ConfirmModal';
 import Spinner from '../components/Spinner';
 import SyncVideoPlayer from '../components/SyncVideoPlayer';
 
@@ -18,6 +20,9 @@ export default function WatchRoomPage() {
   const [viewers, setViewers] = useState(0);
   const [roomClosed, setRoomClosed] = useState(false);
   const [closingCountdown, setClosingCountdown] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [itemToReport, setItemToReport] = useState(null);
+  const [isReporting, setIsReporting] = useState(false);
   const socketRef = useRef(null);
 
   // Real-time player state (server authoritative)
@@ -164,6 +169,29 @@ export default function WatchRoomPage() {
     socketRef.current.emit('watch_room_control', { roomId: id, userId: user._id, action, payload });
   };
 
+  const handleReportChatMessage = (msgId) => {
+    if (!user) return toast.error("Please log in to report content.");
+    setItemToReport(msgId);
+    setShowReportModal(true);
+  };
+
+  const confirmReport = async () => {
+    if (!itemToReport) return;
+    setIsReporting(true);
+    try {
+      await api.post(`/chat/${itemToReport}/report`);
+      toast.success("Flagged for review. Thank you for keeping ClickWatch safe!", {
+        description: "An administrator will check this out soon."
+      });
+    } catch {
+      toast.error("Failed to report. Please try again.");
+    } finally {
+      setIsReporting(false);
+      setShowReportModal(false);
+      setItemToReport(null);
+    }
+  };
+
   if (authLoading) return <div className="p-24 flex justify-center"><Spinner label="Loading session..." /></div>;
   if (error) return <div className="p-20 text-center font-semibold text-rose-500">{error}</div>;
   if (!room) return <div className="p-24 flex justify-center"><Spinner label="Connecting to room..." /></div>;
@@ -292,9 +320,18 @@ export default function WatchRoomPage() {
             </div>
             <div className="flex-1 p-3 overflow-y-auto flex flex-col gap-2.5 text-sm">
               {chat.map((c, i) => (
-                <div key={i}>
+                <div key={i} className="group/chat relative pr-6">
                   <span className="font-bold text-teal-600 dark:text-teal-400 mr-1.5">{c.username}:</span>
                   <span className="text-slate-700 dark:text-slate-300 break-words">{c.message}</span>
+                  {user && c._id && (
+                    <button
+                      onClick={() => handleReportChatMessage(c._id)}
+                      className="absolute right-0 top-0 opacity-0 group-hover/chat:opacity-100 text-[10px] text-slate-400 hover:text-rose-500 transition-all p-0.5"
+                      title="Report message"
+                    >
+                      🚩
+                    </button>
+                  )}
                 </div>
               ))}
               {chat.length === 0 && <p className="text-xs text-slate-400 italic text-center pt-6">No messages yet.</p>}
@@ -353,6 +390,16 @@ export default function WatchRoomPage() {
 
         </div>
       </div>
+      <ConfirmModal
+        isOpen={showReportModal}
+        title="Report Message"
+        description="Are you sure you want to flag this chat message as inappropriate? This helps keep the community safe."
+        confirmLabel="Confirm Report"
+        isDestructive={true}
+        isLoading={isReporting}
+        onConfirm={confirmReport}
+        onCancel={() => setShowReportModal(false)}
+      />
     </div>
   );
 }

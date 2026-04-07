@@ -155,4 +155,12 @@ router.post('/:commentId/vote', authenticate, async (req, res) => {
   });
 });
 
+router.post('/:commentId/report', authenticate, async (req, res) => {
+  const c = await Comment.findById(req.params.commentId);
+  if (!c) return res.status(404).json({ message: 'Comment not found' });
+  c.isFlagged = true;
+  await c.save();
+  res.json({ message: 'Reported successfully' });
+});
+
 module.exports = router;

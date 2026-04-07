@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import VideoPlayer from '../components/VideoPlayer';
 import RatingWidget from '../components/RatingWidget';
 import Spinner from '../components/Spinner';
+import { toast } from 'sonner';
+import ConfirmModal from '../components/ConfirmModal';
 import { io } from 'socket.io-client';
 
 function CommentVoteButtons({ item, user, onVote }) {
@@ -31,7 +33,7 @@ function CommentVoteButtons({ item, user, onVote }) {
   );
 }
 
-function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, depth = 0 }) {
+function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, onReport, depth = 0, highlightedCommentId }) {
   const [isReplying, setIsReplying] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [showAll, setShowAll] = useState(false);
@@ -51,9 +53,10 @@ function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, depth = 0
   };
 
   const isReply = depth > 0;
+  const isHighlighted = highlightedCommentId === comment._id;
 
   return (
-    <div className={`relative ${isReply ? 'mt-4 ml-6 pl-4' : 'mb-8'}`}>
+    <div id={`comment-${comment._id}`} className={`relative ${isReply ? 'mt-4 ml-6 pl-4' : 'mb-8'}`}>
       {/* Connector lines (FB style) */}
       {isReply && <div className="comment-connector-h" />}
       {replies.length > 0 && <div className="comment-connector-v" />}
@@ -61,7 +64,7 @@ function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, depth = 0
       <div className="group/comment relative">
         <div className="flex items-start gap-3">
           <div className="flex-1">
-            <div className={`p-3 rounded-2xl ${isReply ? 'bg-slate-50 dark:bg-white/5' : 'bg-white border border-slate-100 dark:bg-charcoal-900/40 dark:border-white/5'} shadow-sm transition-all group-hover/comment:shadow-md`}>
+            <div className={`p-3 rounded-2xl ${isReply ? 'bg-slate-50 dark:bg-white/5' : 'bg-white border border-slate-100 dark:bg-charcoal-900/40 dark:border-white/5'} shadow-sm transition-all group-hover/comment:shadow-md ${isHighlighted ? 'ring-2 ring-teal-500 shadow-teal-500/20' : ''}`}>
               <div className="flex justify-between items-start mb-1">
                 <p className="text-[10px] font-black tracking-widest uppercase text-teal-600 dark:text-teal-400">
                   {comment.user?.username}
@@ -69,11 +72,19 @@ function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, depth = 0
                 {canDelete && (
                   <button 
                     onClick={() => onDelete(comment._id)}
-                    className="opacity-0 group-hover/comment:opacity-100 text-[10px] font-black text-rose-400 hover:text-rose-600 dark:text-rose-500/50 dark:hover:text-rose-400 transition-all uppercase tracking-tighter"
+                    className="opacity-0 group-hover/comment:opacity-100 p-1.5 text-rose-400 hover:text-rose-600 dark:text-rose-500/50 dark:hover:text-rose-400 transition-all rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/10"
+                    title="Delete comment"
                   >
-                    Delete
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                   </button>
                 )}
+                <button
+                  onClick={() => onReport(comment._id)}
+                  className="opacity-0 group-hover/comment:opacity-100 text-[10px] font-black text-slate-400 hover:text-rose-500 transition-all uppercase tracking-tighter"
+                  title="Report inappropriate content"
+                >
+                  Report
+                </button>
               </div>
               <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed break-words">
                 {comment.body}
@@ -123,7 +134,9 @@ function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, depth = 0
               onVote={onVote} 
               onSubmitReply={onSubmitReply}
               onDelete={onDelete}
+              onReport={onReport}
               depth={depth + 1}
+              highlightedCommentId={highlightedCommentId}
             />
           ))}
           
@@ -160,6 +173,25 @@ export default function Watch() {
   const [userVote, setUserVote] = useState(0);
   const [myRating, setMyRating] = useState(0);
   const socketRef = useRef(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportRequest, setReportRequest] = useState(null); // { id, type: 'comment' | 'chat' }
+  const [isReporting, setIsReporting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [searchParams] = useSearchParams();
+  const highlightedCommentId = searchParams.get('commentId');
+
+  useEffect(() => {
+    if (comments.length > 0 && highlightedCommentId) {
+      setTimeout(() => {
+        const el = document.getElementById(`comment-${highlightedCommentId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500); // Wait for rendering out the recursive comments
+    }
+  }, [comments, highlightedCommentId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -384,9 +416,17 @@ export default function Watch() {
     }
   };
 
-  const handleDeleteComment = async (commentId) => {
-    if (!window.confirm("Are you sure you want to delete this comment?")) return;
+  const handleDeleteComment = (commentId) => {
+    setItemToDelete(commentId);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    setIsDeleting(true);
     
+    const commentId = itemToDelete;
+
     // Recursive optimistic filter
     const filterRecurse = (list) => {
       return list.filter(c => c._id !== commentId).map(c => {
@@ -401,9 +441,49 @@ export default function Watch() {
 
     try {
       await api.delete(`/episodes/${episodeId}/comments/${commentId}`);
+      toast.success("Comment deleted");
     } catch {
       const { data: cData } = await api.get(`/episodes/${episodeId}/comments`);
       setComments(cData.comments || []);
+      toast.error("Failed to delete comment");
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+      setItemToDelete(null);
+    }
+  };
+
+  const handleReportComment = (commentId) => {
+    if (!user) return toast.error("Please log in to report content.");
+    setReportRequest({ id: commentId, type: 'comment' });
+    setShowReportModal(true);
+  };
+
+  const handleReportChatMessage = (msgId) => {
+    if (!user) return toast.error("Please log in to report content.");
+    setReportRequest({ id: msgId, type: 'chat' });
+    setShowReportModal(true);
+  };
+
+  const confirmReport = async () => {
+    if (!reportRequest) return;
+    setIsReporting(true);
+    try {
+      const { id, type } = reportRequest;
+      const endpoint = type === 'comment' 
+        ? `/episodes/${episodeId}/comments/${id}/report`
+        : `/chat/${id}/report`;
+      
+      await api.post(endpoint);
+      toast.success("Flagged for review. Thank you for keeping ClickWatch safe!", {
+        description: "An administrator will check this out soon."
+      });
+    } catch {
+      toast.error("Failed to report. Please try again.");
+    } finally {
+      setIsReporting(false);
+      setShowReportModal(false);
+      setReportRequest(null);
     }
   };
 
@@ -515,6 +595,8 @@ export default function Watch() {
                 onVote={handleCommentVote} 
                 onSubmitReply={submitComment} 
                 onDelete={handleDeleteComment}
+                onReport={handleReportComment}
+                highlightedCommentId={highlightedCommentId}
               />
             ))}
             {!comments.length && (
@@ -529,9 +611,17 @@ export default function Watch() {
           <div className="flex-1 min-h-[12rem] max-h-64 overflow-y-auto rounded-xl bg-slate-100 border border-slate-200 p-4 text-sm flex flex-col-reverse dark:bg-charcoal-900 dark:border-white/10 mb-4 shadow-inner">
             <div className="space-y-3">
               {live.map((m, i) => (
-                <div key={`${m._id}-${i}`} className="animate-fadeIn">
+                <div key={`${m._id}-${i}`} className="animate-fadeIn group/live relative">
                   <span className="font-semibold text-teal-700 dark:text-teal-400 mr-2">{m.user?.username}</span>
                   <span className="text-slate-800 dark:text-slate-200 break-words">{m.body}</span>
+                  {user && m._id && (
+                    <button
+                      onClick={() => handleReportChatMessage(m._id)}
+                      className="absolute right-0 top-0 opacity-0 group-hover/live:opacity-100 text-[9px] font-black text-slate-400 hover:text-rose-500 transition-all uppercase"
+                    >
+                      🚩 Report
+                    </button>
+                  )}
                 </div>
               ))}
               {!live.length && <p className="text-slate-500 italic">No live messages yet. Be the first!</p>}
@@ -556,6 +646,26 @@ export default function Watch() {
           )}
         </div>
       </div>
+      <ConfirmModal
+        isOpen={showReportModal}
+        title="Report Content"
+        description={`Are you sure you want to flag this ${reportRequest?.type === 'comment' ? 'comment' : 'message'} as inappropriate? This helps keep the community safe.`}
+        confirmLabel="Confirm Report"
+        isDestructive={true}
+        isLoading={isReporting}
+        onConfirm={confirmReport}
+        onCancel={() => setShowReportModal(false)}
+      />
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Comment"
+        description="Are you sure you want to delete this comment? This action cannot be undone."
+        confirmLabel="Delete"
+        isDestructive={true}
+        isLoading={isDeleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 }

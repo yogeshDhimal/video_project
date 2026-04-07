@@ -131,7 +131,7 @@ export default function Navbar() {
               <NavLink to="/browse" className={link}>Browse</NavLink>
               <NavLink to="/search" className={link}>Search</NavLink>
               <NavLink to="/watch-together" className={link}>
-                <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>Watch Together</span>
+                <span className="flex items-center gap-1.5">Watch Together</span>
               </NavLink>
               {isAdmin && (
                 <NavLink to="/admin" className={link}>
@@ -297,7 +297,7 @@ export default function Navbar() {
               Search
             </NavLink>
             <NavLink to="/watch-together" className={link}>
-              <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>Watch Together</span>
+              <span className="flex items-center gap-1.5">Watch Together</span>
             </NavLink>
             {isAdmin && (
               <NavLink to="/admin" className={link}>

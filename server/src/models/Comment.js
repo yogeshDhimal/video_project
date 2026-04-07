@@ -8,6 +8,7 @@ const commentSchema = new mongoose.Schema(
     body: { type: String, required: true, maxlength: 4000, trim: true },
     likes: { type: Number, default: 0 },
     dislikes: { type: Number, default: 0 },
+    isFlagged: { type: Boolean, default: false, index: true },
   },
   { timestamps: true }
 );

@@ -27,7 +27,8 @@ const AdminSeasonNew = React.lazy(() => import('./admin/AdminSeasonNew'));
 const AdminEpisodeNew = React.lazy(() => import('./admin/AdminEpisodeNew'));
 const AdminMedia = React.lazy(() => import('./admin/AdminMedia'));
 const AdminUsers = React.lazy(() => import('./admin/AdminUsers'));
-const AdminGuide = React.lazy(() => import('./admin/AdminGuide'));
+const AdminAnalytics = React.lazy(() => import('./admin/AdminAnalytics'));
+const AdminModeration = React.lazy(() => import('./admin/AdminModeration'));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -75,7 +76,8 @@ function AppContent() {
               <Route path="episodes" element={<AdminEpisodeNew />} />
               <Route path="media" element={<AdminMedia />} />
               <Route path="users" element={<AdminUsers />} />
-              <Route path="guide" element={<AdminGuide />} />
+              <Route path="analytics" element={<AdminAnalytics />} />
+              <Route path="moderation" element={<AdminModeration />} />
             </Route>
 
             {/* 404 Route */}

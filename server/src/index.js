@@ -21,6 +21,11 @@ async function main() {
   server.keepAliveTimeout = 65000;
   server.headersTimeout = 66000;
   initSocket(server, app);
+
+  // Initialize and run the dashboard stats job on startup
+  const { updateDashboardStats } = require('./jobs/dashboardStats');
+  updateDashboardStats(); // Don't await, let it run in background
+
   server.on('error', (e) => {
     if (e.code === 'EADDRINUSE') {
       console.error(`\n❌ Error: Port ${PORT} is already in use.`);

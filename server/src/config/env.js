@@ -16,6 +16,7 @@ const env = {
   emailUser: process.env.EMAIL_USER || '',
   emailPass: process.env.EMAIL_PASS || '',
   emailFrom: process.env.EMAIL_FROM || 'noreply@clickwatch.local',
+  redisUri: process.env.REDIS_URI,
 };
 
 module.exports = env;

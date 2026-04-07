@@ -2,13 +2,24 @@ const jwt = require('jsonwebtoken');
 const Comment = require('../models/Comment');
 const User = require('../models/User');
 const WatchRoom = require('../models/WatchRoom');
+const ChatMessage = require('../models/ChatMessage');
 const env = require('../config/env');
+const redis = require('../utils/redis');
+
+const REDIS_VIEWERS_KEY = 'stats:active_viewers';
 
 function initSocket(httpServer, app) {
   const { Server } = require('socket.io');
   const io = new Server(httpServer, {
     cors: { origin: true, credentials: true },
   });
+
+  // Global viewer tracking helper
+  const broadcastGlobalViewers = async () => {
+    if (!redis) return;
+    const count = await redis.get(REDIS_VIEWERS_KEY);
+    io.to('admin:stats').emit('global_active_viewers', { count: parseInt(count || 0) });
+  };
 
   // Fixed: Socket.IO authentication middleware (issue 2.7)
   // Verifies JWT on connection instead of trusting client-supplied userId
@@ -35,11 +46,29 @@ function initSocket(httpServer, app) {
   });
 
   io.on('connection', (socket) => {
+    // 1. Increment global active viewers in Redis (non-blocking)
+    if (redis) {
+      redis.incr(REDIS_VIEWERS_KEY).then(() => broadcastGlobalViewers()).catch(console.error);
+    }
+
     socket.on('disconnect', () => {
+      // 2. Decrement global active viewers in Redis (non-blocking)
+      if (redis) {
+        redis.decr(REDIS_VIEWERS_KEY).then(() => broadcastGlobalViewers()).catch(console.error);
+      }
+
       if (socket.data && socket.data.watchRoomId) {
         const roomId = socket.data.watchRoomId;
         const count = io.sockets.adapter.rooms.get(`wr:${roomId}`)?.size || 0;
         io.to(`wr:${roomId}`).emit('watch_room_viewers', { count });
+      }
+    });
+
+    // 3. Admin-only stats channel
+    socket.on('join_admin_stats', () => {
+      if (socket.data.user?.role === 'admin') {
+        socket.join('admin:stats');
+        broadcastGlobalViewers();
       }
     });
 
@@ -59,8 +88,20 @@ function initSocket(httpServer, app) {
         if (!user) return cb?.({ error: 'Authentication required' });
         const { episodeId, body } = payload;
         if (!episodeId || !body) return cb?.({ error: 'Invalid' });
-        const c = await Comment.create({ episodeId, userId: user._id, body: String(body).slice(0, 4000), parentId: null });
-        const msg = { ...c.toObject(), user: { username: user.username, avatar: user.avatar } };
+        
+        // Save to DB for moderation
+        const msgDoc = await ChatMessage.create({
+          userId: user._id,
+          episodeId,
+          body: String(body).slice(0, 4000)
+        });
+
+        const msg = { 
+          _id: msgDoc._id,
+          body: msgDoc.body,
+          createdAt: msgDoc.createdAt,
+          user: { username: user.username, avatar: user.avatar } 
+        };
         io.to(`ep:${episodeId}`).emit('live_comment', msg);
         cb?.({ ok: true, comment: msg });
       } catch (e) {
@@ -139,10 +180,18 @@ function initSocket(httpServer, app) {
       if (!user) return;
       const sanitized = String(message || '').trim().slice(0, 2000);
       if (sanitized) {
+        // Save to DB for moderation
+        const msgDoc = await ChatMessage.create({
+          userId: user._id,
+          watchRoomId: roomId,
+          body: sanitized
+        });
+
         io.to(`wr:${roomId}`).emit('watch_room_chat', {
+          _id: msgDoc._id,
           username: user.username,
           message: sanitized,
-          timestamp: new Date(),
+          timestamp: msgDoc.createdAt,
         });
       }
     });

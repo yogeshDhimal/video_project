@@ -7,7 +7,11 @@ const navGroups = [
   },
   {
     label: 'Audience',
-    items: [{ to: '/admin/users', end: false, label: 'Users', icon: '◎' }],
+    items: [
+      { to: '/admin/users', end: false, label: 'Users', icon: '◎' },
+      { to: '/admin/analytics', end: false, label: 'Analytics', icon: '📊' },
+      { to: '/admin/moderation', end: false, label: 'Moderation', icon: '⚖' },
+    ],
   },
   {
     label: 'Library',
@@ -18,10 +22,6 @@ const navGroups = [
       { to: '/admin/seasons', end: false, label: 'New season', icon: '▤' },
       { to: '/admin/episodes', end: false, label: 'New episode', icon: '▶' },
     ],
-  },
-  {
-    label: 'Help',
-    items: [{ to: '/admin/guide', end: false, label: 'Admin guide', icon: '?' }],
   },
 ];
 
@@ -52,11 +52,13 @@ export default function AdminLayout() {
   const title =
     pathname === '/admin' || pathname === '/admin/'
       ? 'Dashboard'
-      : pathname.includes('/guide')
-        ? 'Admin guide'
-        : pathname.includes('/users')
+      : pathname.includes('/users')
           ? 'Users'
-          : pathname.endsWith('/series/new')
+          : pathname.includes('/analytics')
+            ? 'Analytics'
+            : pathname.includes('/moderation')
+              ? 'Moderation queue'
+              : pathname.endsWith('/series/new')
             ? 'New series'
             : pathname.endsWith('/series/drafts')
               ? 'Drafts'

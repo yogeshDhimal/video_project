@@ -9,6 +9,13 @@ export default function Profile() {
   const [msg, setMsg] = useState('');
   const [bookmarks, setBookmarks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [avatarHash, setAvatarHash] = useState(Date.now());
+
+  const getAvatarSource = () => {
+    if (!user?.avatar) return null;
+    if (user.avatar.startsWith('http')) return user.avatar;
+    return `/api/assets/avatar/${user._id}?t=${avatarHash}`;
+  };
 
   useEffect(() => {
     if (!user) {
@@ -46,6 +53,7 @@ export default function Profile() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setUser(data.user);
+      setAvatarHash(Date.now());
       setMsg('Avatar updated securely');
       setTimeout(() => setMsg(''), 3000);
     } catch {}
@@ -74,7 +82,7 @@ export default function Profile() {
             <div className="flex flex-col items-center gap-4 mb-8 pt-4 pb-6 border-b border-slate-200 dark:border-white/10">
               <div className="w-28 h-28 rounded-full overflow-hidden border-[3px] border-white shadow-xl bg-slate-100 dark:border-charcoal-800 dark:bg-charcoal-900 group relative">
                 {user?.avatar ? (
-                  <img src={`/api/assets/avatar/${user._id}`} alt="" className="w-full h-full object-cover" />
+                  <img src={getAvatarSource()} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-slate-400 text-4xl font-semibold">
                     {user?.username?.[0]?.toUpperCase()}
