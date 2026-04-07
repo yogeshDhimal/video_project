@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import SectionHeader from '../components/SectionHeader';
@@ -14,6 +14,9 @@ export default function WatchTogetherCreate() {
   const [expandedSeason, setExpandedSeason] = useState(null);
   const [episodes, setEpisodes] = useState([]); // { _id, title, seriesTitle }
   const [loading, setLoading] = useState(false);
+  const [visibility, setVisibility] = useState('public');
+  const [pin, setPin] = useState(['', '', '', '']);
+  const pinRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
 
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -49,16 +52,38 @@ export default function WatchTogetherCreate() {
     setEpisodes(episodes.filter(e => e._id !== id));
   };
 
+  const handlePinChange = (index, value) => {
+    if (!/^\d?$/.test(value)) return;
+    const newPin = [...pin];
+    newPin[index] = value;
+    setPin(newPin);
+    if (value && index < 3) pinRefs[index + 1].current?.focus();
+  };
+
+  const handlePinKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !pin[index] && index > 0) {
+      pinRefs[index - 1].current?.focus();
+    }
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     if (episodes.length === 0) return alert('Add at least one episode');
+    
+    const pinStr = pin.join('');
+    if (visibility === 'private' && pinStr.length !== 4) {
+      return alert('Please enter a 4-digit PIN for your private room');
+    }
+
     try {
       setLoading(true);
       const payload = {
         title,
         episodes: episodes.map(e => e._id),
+        visibility,
       };
       if (scheduledStartTime) payload.scheduledStartTime = new Date(scheduledStartTime).toISOString();
+      if (visibility === 'private') payload.pin = pinStr;
       const { data } = await api.post('/watch-rooms', payload);
       navigate(`/watch-together/${data.room._id}`);
     } catch (err) {
@@ -81,6 +106,71 @@ export default function WatchTogetherCreate() {
             className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-charcoal-850 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50"
             placeholder="E.g. Naruto Final Arc Marathon"
           />
+        </div>
+
+        {/* Room Privacy */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Room Privacy</label>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setVisibility('public')}
+              className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-xl border-2 font-semibold text-sm transition-all ${
+                visibility === 'public'
+                  ? 'border-teal-500 bg-teal-50 text-teal-700 shadow-sm dark:bg-teal-900/30 dark:text-teal-400 dark:border-teal-500'
+                  : 'border-slate-200 text-slate-500 hover:border-slate-300 dark:border-white/10 dark:text-slate-400 dark:hover:border-white/20'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              Public
+            </button>
+            <button
+              type="button"
+              onClick={() => { setVisibility('private'); setTimeout(() => pinRefs[0].current?.focus(), 100); }}
+              className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-xl border-2 font-semibold text-sm transition-all ${
+                visibility === 'private'
+                  ? 'border-amber-500 bg-amber-50 text-amber-700 shadow-sm dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-500'
+                  : 'border-slate-200 text-slate-500 hover:border-slate-300 dark:border-white/10 dark:text-slate-400 dark:hover:border-white/20'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Private
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
+            {visibility === 'public' 
+              ? 'Anyone browsing can see and join your room freely.' 
+              : 'Only people with the 4-digit PIN can enter.'}
+          </p>
+
+          {/* PIN Input */}
+          {visibility === 'private' && (
+            <div className="mt-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-500/20 animate-fadeIn">
+              <label className="block text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-3">Set Room PIN</label>
+              <div className="flex justify-center gap-3">
+                {pin.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={pinRefs[i]}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handlePinChange(i, e.target.value)}
+                    onKeyDown={(e) => handlePinKeyDown(i, e)}
+                    className={`w-14 h-16 text-center text-2xl font-bold rounded-xl border-2 outline-none transition-all 
+                      ${digit 
+                        ? 'border-amber-500 bg-white text-amber-700 dark:bg-charcoal-850 dark:text-amber-400' 
+                        : 'border-slate-200 bg-white text-slate-900 dark:bg-charcoal-850 dark:border-white/10 dark:text-white'
+                      }
+                      focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20
+                    `}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-400/80 mt-2 text-center">Share this PIN with your friends so they can join.</p>
+            </div>
+          )}
         </div>
 
         <div>
@@ -166,7 +256,7 @@ export default function WatchTogetherCreate() {
         </div>
 
         <button disabled={loading} type="submit" className="w-full py-4 bg-gradient-to-r from-teal-600 to-teal-500 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50">
-          {loading ? 'Creating...' : 'Create Room'}
+          {loading ? 'Creating...' : visibility === 'private' ? '🔒 Create Private Room' : 'Create Room'}
         </button>
       </form>
     </div>

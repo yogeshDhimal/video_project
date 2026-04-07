@@ -1,18 +1,20 @@
 import { useEffect, useState, useRef } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import ConfirmModal from '../components/ConfirmModal';
+import PinEntryModal from '../components/PinEntryModal';
 import Spinner from '../components/Spinner';
 import SyncVideoPlayer from '../components/SyncVideoPlayer';
 
 export default function WatchRoomPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const [room, setRoom] = useState(null);        // full REST-populated room (has episode objects)
-  const [syncState, setSyncState] = useState(null); // lightweight socket-only sync state
+  const [room, setRoom] = useState(null);
+  const [syncState, setSyncState] = useState(null);
   const [chat, setChat] = useState([]);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState(null);
@@ -25,22 +27,45 @@ export default function WatchRoomPage() {
   const [isReporting, setIsReporting] = useState(false);
   const socketRef = useRef(null);
 
+  // Private room gate state
+  const [requiresPin, setRequiresPin] = useState(false);
+  const [pinError, setPinError] = useState('');
+  const [pinLoading, setPinLoading] = useState(false);
+
   // Real-time player state (server authoritative)
   const [isPlaying, setIsPlaying] = useState(false);
   const [serverTime, setServerTime] = useState(0);
   const [currentEpIdx, setCurrentEpIdx] = useState(0);
 
-  // Step 1: Load full populated room via REST (so we have episode objects with qualities)
+  // Step 1: Load full populated room via REST
   useEffect(() => {
     if (authLoading) return;
     if (!user) { setError('Login required'); return; }
 
     api.get(`/watch-rooms/${id}`)
       .then(({ data }) => {
+        // Check if this is a private room requiring PIN
+        if (data.room.requiresPin) {
+          // Check sessionStorage for prior authorization
+          const cached = sessionStorage.getItem(`wr_auth_${id}`);
+          if (cached === 'true') {
+            // Re-authorize via API then reload room data
+            api.post(`/watch-rooms/${id}/join`, { pin: '0000' }).catch(() => {});
+            // Actually, sessionStorage means we already passed PIN once.
+            // Try fetching again — server should have us in authorized set.
+            // But server memory resets on restart, so we need to re-handle.
+            setRequiresPin(true);
+            setRoom(data.room);
+            return;
+          }
+          setRequiresPin(true);
+          setRoom(data.room);
+          return;
+        }
+        setRequiresPin(false);
         setRoom(data.room);
         setCurrentEpIdx(data.room.currentEpisodeIndex || 0);
         setIsPlaying(data.room.isPlaying || false);
-        // Calculate server time accounting for elapsed time if already playing
         let t = data.room.currentVideoTime || 0;
         if (data.room.isPlaying && data.room.playbackUpdatedAt) {
           t += (Date.now() - new Date(data.room.playbackUpdatedAt).getTime()) / 1000;
@@ -50,9 +75,36 @@ export default function WatchRoomPage() {
       .catch(() => setError('Room not found or unavailable.'));
   }, [id, authLoading, user]);
 
-  // Step 2: Connect socket once room is loaded
+  // PIN submission handler
+  const handlePinSubmit = async (pin) => {
+    setPinLoading(true);
+    setPinError('');
+    try {
+      const { data } = await api.post(`/watch-rooms/${id}/join`, { pin });
+      if (data.authorized) {
+        sessionStorage.setItem(`wr_auth_${id}`, 'true');
+        // Re-fetch the full room data now that we're authorized
+        const { data: fullData } = await api.get(`/watch-rooms/${id}`);
+        setRoom(fullData.room);
+        setRequiresPin(false);
+        setCurrentEpIdx(fullData.room.currentEpisodeIndex || 0);
+        setIsPlaying(fullData.room.isPlaying || false);
+        let t = fullData.room.currentVideoTime || 0;
+        if (fullData.room.isPlaying && fullData.room.playbackUpdatedAt) {
+          t += (Date.now() - new Date(fullData.room.playbackUpdatedAt).getTime()) / 1000;
+        }
+        setServerTime(t);
+      }
+    } catch (err) {
+      setPinError(err.response?.data?.message || 'Incorrect PIN');
+    } finally {
+      setPinLoading(false);
+    }
+  };
+
+  // Step 2: Connect socket once room is loaded AND authorized
   useEffect(() => {
-    if (!room || !user) return;
+    if (!room || !user || requiresPin) return;
     const token = localStorage.getItem('sv_token');
     if (!token) return;
 
@@ -195,6 +247,28 @@ export default function WatchRoomPage() {
   if (authLoading) return <div className="p-24 flex justify-center"><Spinner label="Loading session..." /></div>;
   if (error) return <div className="p-20 text-center font-semibold text-rose-500">{error}</div>;
   if (!room) return <div className="p-24 flex justify-center"><Spinner label="Connecting to room..." /></div>;
+
+  // PIN Gate — show modal for private rooms before full render
+  if (requiresPin) {
+    return (
+      <div className="max-w-[1400px] mx-auto px-4 py-16">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-display font-bold text-slate-900 dark:text-white mb-2">{room.title}</h1>
+          <p className="text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            This is a private room. Enter the PIN to continue.
+          </p>
+        </div>
+        <PinEntryModal
+          isOpen={true}
+          onSubmit={handlePinSubmit}
+          onCancel={() => navigate('/watch-together')}
+          isLoading={pinLoading}
+          error={pinError}
+        />
+      </div>
+    );
+  }
 
   const isHost = !!(user && room.hostId && (room.hostId._id?.toString() === user._id?.toString() || room.hostId?.toString() === user._id?.toString()));
   const currentEpisode = room.episodes[currentEpIdx] || null; // This is a full populated episode object

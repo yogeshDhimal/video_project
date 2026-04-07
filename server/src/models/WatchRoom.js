@@ -12,6 +12,12 @@ const watchRoomSchema = new mongoose.Schema(
       enum: ['scheduled', 'active', 'finished'],
       default: 'scheduled',
     },
+    visibility: {
+      type: String,
+      enum: ['public', 'private'],
+      default: 'public',
+    },
+    pin: { type: String, default: null, select: false },
     isPlaying: { type: Boolean, default: false },
     currentVideoTime: { type: Number, default: 0 },
     playbackUpdatedAt: { type: Date, default: null },

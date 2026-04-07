@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import Spinner from '../components/Spinner';
+import PinEntryModal from '../components/PinEntryModal';
+import { toast } from 'sonner';
 
 function CountdownTimer({ targetDate }) {
   const [timeLeft, setTimeLeft] = useState('');
@@ -26,10 +28,16 @@ function CountdownTimer({ targetDate }) {
 
 export default function WatchTogetherHub() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [tab, setTab] = useState('live'); // live, upcoming, me
   const [rooms, setRooms] = useState({ active: [], scheduled: [] });
   const [myRooms, setMyRooms] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // PIN modal state
+  const [pinModal, setPinModal] = useState({ isOpen: false, roomId: null });
+  const [pinError, setPinError] = useState('');
+  const [pinLoading, setPinLoading] = useState(false);
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -57,6 +65,43 @@ export default function WatchTogetherHub() {
       setMyRooms(myRooms.filter(r => r._id !== id));
     } catch (e) {
       alert('Error deleting room');
+    }
+  };
+
+  const handleJoinRoom = (room) => {
+    if (room.visibility === 'private') {
+      // Check if user is the host — hosts bypass PIN
+      const isHost = user && (room.hostId?._id === user._id || room.hostId === user._id);
+      if (isHost) {
+        navigate(`/watch-together/${room._id}`);
+        return;
+      }
+      if (!user) {
+        toast.error('Please log in to join private rooms.');
+        return;
+      }
+      setPinError('');
+      setPinModal({ isOpen: true, roomId: room._id });
+    } else {
+      navigate(`/watch-together/${room._id}`);
+    }
+  };
+
+  const handlePinSubmit = async (pin) => {
+    setPinLoading(true);
+    setPinError('');
+    try {
+      const { data } = await api.post(`/watch-rooms/${pinModal.roomId}/join`, { pin });
+      if (data.authorized) {
+        // Store auth in sessionStorage so page refresh doesn't re-prompt
+        sessionStorage.setItem(`wr_auth_${pinModal.roomId}`, 'true');
+        setPinModal({ isOpen: false, roomId: null });
+        navigate(`/watch-together/${pinModal.roomId}`);
+      }
+    } catch (err) {
+      setPinError(err.response?.data?.message || 'Incorrect PIN');
+    } finally {
+      setPinLoading(false);
     }
   };
 
@@ -117,6 +162,12 @@ export default function WatchTogetherHub() {
                      }`}>
                        {room.status}
                      </span>
+                     {room.visibility === 'private' && (
+                       <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300 flex items-center gap-1">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                         Private
+                       </span>
+                     )}
                      {room.status === 'scheduled' && <CountdownTimer targetDate={room.scheduledStartTime} />}
                    </div>
                    {tab === 'me' && (
@@ -146,13 +197,27 @@ export default function WatchTogetherHub() {
                   </ul>
                 </div>
               </div>
-              <Link to={`/watch-together/${room._id}`} className="block px-5 py-4 text-center text-sm font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 dark:bg-teal-900/20 dark:text-teal-400 dark:hover:bg-teal-900/40 transition-colors">
-                {room.status === 'active' ? 'Join Party' : 'Enter Waiting Room'}
-              </Link>
+              <button
+                onClick={() => handleJoinRoom(room)}
+                className="block w-full px-5 py-4 text-center text-sm font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 dark:bg-teal-900/20 dark:text-teal-400 dark:hover:bg-teal-900/40 transition-colors"
+              >
+                {room.visibility === 'private'
+                  ? '🔒 Enter PIN to Join'
+                  : room.status === 'active' ? 'Join Party' : 'Enter Waiting Room'
+                }
+              </button>
             </div>
           ))}
         </div>
       )}
+
+      <PinEntryModal
+        isOpen={pinModal.isOpen}
+        onSubmit={handlePinSubmit}
+        onCancel={() => setPinModal({ isOpen: false, roomId: null })}
+        isLoading={pinLoading}
+        error={pinError}
+      />
     </div>
   );
 }

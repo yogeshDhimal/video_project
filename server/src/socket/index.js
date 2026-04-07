@@ -5,6 +5,7 @@ const WatchRoom = require('../models/WatchRoom');
 const ChatMessage = require('../models/ChatMessage');
 const env = require('../config/env');
 const redis = require('../utils/redis');
+const watchRoomsRoute = require('../routes/watch-rooms');
 
 const REDIS_VIEWERS_KEY = 'stats:active_viewers';
 
@@ -115,12 +116,25 @@ function initSocket(httpServer, app) {
       io.to(`wr:${roomId}`).emit('watch_room_viewers', { count });
     };
 
-    socket.on('join_watch_room', async (roomId) => {
+    socket.on('join_watch_room', async (roomId, cb) => {
+      const user = socket.data.user;
+      // Private room check: verify user has been authorized via PIN
+      const r = await WatchRoom.findById(roomId).lean();
+      if (!r) return cb?.({ error: 'Room not found' });
+
+      if (r.visibility === 'private' && user) {
+        const hostId = r.hostId?.toString();
+        const userId = user._id?.toString();
+        const isHost = hostId === userId;
+        if (!isHost && !watchRoomsRoute.isUserAuthorized(roomId, userId)) {
+          return cb?.({ error: 'PIN required' });
+        }
+      }
+
       socket.join(`wr:${roomId}`);
       socket.data = { ...socket.data, watchRoomId: roomId };
       updateWatchRoomViewers(roomId);
 
-      const r = await WatchRoom.findById(roomId).lean();
       if (r) {
         let currentTime = r.currentVideoTime;
         if (r.status === 'active' && r.isPlaying && r.playbackUpdatedAt) {
@@ -128,6 +142,7 @@ function initSocket(httpServer, app) {
         }
         socket.emit('watch_room_state', { ...r, currentVideoTime: currentTime });
       }
+      cb?.({ ok: true });
     });
 
     socket.on('leave_watch_room', (roomId) => {
@@ -139,11 +154,13 @@ function initSocket(httpServer, app) {
     });
 
     // Fixed: use verified socket.data.user._id instead of client-supplied userId (issue 2.7)
-    socket.on('watch_room_control', async ({ roomId, action, payload }) => {
+    socket.on('watch_room_control', async ({ roomId, action, payload }, cb) => {
       const user = socket.data.user;
-      if (!user) return;
+      if (!user) return cb?.({ error: 'Authentication required' });
       const r = await WatchRoom.findById(roomId);
-      if (!r || r.hostId.toString() !== user._id.toString()) return; // Only host can emit control
+      if (!r || r.hostId.toString() !== user._id.toString()) {
+        return cb?.({ error: 'Only the host can control playback' });
+      }
       
       if (action === 'close_room') {
         r.status = 'finished';
