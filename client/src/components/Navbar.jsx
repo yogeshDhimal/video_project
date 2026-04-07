@@ -133,6 +133,14 @@ export default function Navbar() {
               <NavLink to="/watch-together" className={link}>
                 <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>Watch Together</span>
               </NavLink>
+              {isAdmin && (
+                <NavLink to="/admin" className={link}>
+                  <span className="flex items-center gap-1.5">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    Admin
+                  </span>
+                </NavLink>
+              )}
             </nav>
           )}
 
@@ -187,7 +195,7 @@ export default function Navbar() {
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                   className={`w-10 h-10 rounded-xl overflow-hidden border-2 transition-all active:scale-90 flex-shrink-0 ${
                     userDropdownOpen 
-                      ? 'border-teal-500 shadow-[0_0_20px_-5px_rgba(20,184,166,0.5)]' 
+                      ? 'border-teal-500 shadow-[0_0_20px_-5px_rgba(20,184,166,0.55)]' 
                       : 'border-transparent hover:border-teal-500/50 shadow-md'
                   }`}
                 >
@@ -199,18 +207,30 @@ export default function Navbar() {
                 </button>
                 
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-3 w-48 bg-white border border-slate-200 shadow-2xl rounded-2xl dark:bg-charcoal-900 dark:border-white/10 dark:shadow-glow z-50 origin-top-right animate-fadeUp py-2">
+                  <div className="absolute right-0 mt-3 w-52 bg-white border border-slate-200 shadow-2xl rounded-2xl dark:bg-charcoal-900 dark:border-white/10 dark:shadow-glow z-50 origin-top-right animate-fadeUp py-2">
                     <div className="px-4 py-2 border-b border-slate-100 dark:border-white/5 mb-1.5">
                       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-0.5">Account</p>
                       <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{user.username}</p>
                     </div>
+                    
+                    {isAdmin && (
+                      <Link
+                        to="/admin"
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-teal-600 hover:bg-teal-50 dark:text-teal-400 dark:hover:bg-teal-900/10 transition-all font-bold group"
+                      >
+                        <svg className="group-hover:rotate-12 transition-transform" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        Admin Console
+                      </Link>
+                    )}
+
                     <Link
                       to="/profile"
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:text-teal-600 hover:bg-teal-50 dark:text-slate-300 dark:hover:text-teal-400 dark:hover:bg-teal-900/15 transition-all"
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:text-teal-600 hover:bg-teal-50 dark:text-slate-300 dark:hover:text-teal-400 dark:hover:bg-teal-900/10 transition-all font-medium"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                       My Profile
                     </Link>
+
                     <button
                       type="button"
                       onClick={() => {

@@ -9,9 +9,8 @@ export default function Footer() {
             ClickWatch
           </span>
         </Link>
-        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed mb-8">
-          ClickWatch does not store any files on our server, we only linked to the media which is hosted on 3rd party services.
-        </p>
+        {/* Logo and Navigation links continue here */}
+
         
         <div className="flex flex-wrap justify-center gap-6 text-sm font-semibold text-slate-600 dark:text-slate-300 mb-8">
           <Link to="/browse" className="hover:text-teal-500 transition-colors">Catalog</Link>

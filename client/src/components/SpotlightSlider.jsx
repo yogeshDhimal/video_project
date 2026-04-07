@@ -65,7 +65,7 @@ export default function SpotlightSlider({ items }) {
 
   return (
     <div 
-      className="relative w-full h-[450px] sm:h-[500px] md:h-[600px] bg-charcoal-950 overflow-hidden group mb-14 rounded-3xl border shadow-xl border-slate-200 dark:border-white/10 select-none cursor-grab active:cursor-grabbing"
+      className="relative w-full h-[55vh] sm:h-[60vh] md:h-[65vh] bg-white dark:bg-charcoal-950 overflow-hidden group select-none transition-colors duration-500"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => { setIsHovered(false); handlePointerUp(); }}
       onMouseDown={handlePointerDown}
@@ -84,90 +84,116 @@ export default function SpotlightSlider({ items }) {
         return (
           <div 
             key={episode._id}
-            className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out ${
-              isActive ? 'opacity-100 pointer-events-auto z-10' : 'opacity-0 pointer-events-none z-0'
+            className={`absolute inset-0 w-full h-full transition-all duration-[1200ms] ease-in-out ${
+              isActive ? 'opacity-100 scale-100 z-10' : 'opacity-0 scale-105 z-0'
             }`}
           >
-            {/* Background Art */}
+            {/* Background Art with Adaptive Cinematic Fades */}
             <div className="absolute inset-0">
               <img 
                 src={`/api/stream/thumbnail/${episode._id}`} 
                 alt={series?.title}
-                className="w-full h-full object-cover object-center pointer-events-none"
+                className="w-full h-full object-cover object-center pointer-events-none transition-transform duration-[12000ms] ease-linear"
+                style={{ transform: isActive ? 'scale(1.15)' : 'scale(1)' }}
                 draggable={false}
               />
-              {/* Force distinct dark cinematic gradients regardless of light/dark mode for image visibility */}
-              <div className="absolute inset-0 bg-gradient-to-r from-charcoal-950 via-charcoal-900/60 to-transparent w-full md:w-[80%] pointer-events-none" />
-              <div className="absolute inset-0 bg-gradient-to-t from-charcoal-950 via-charcoal-900/40 to-transparent pointer-events-none" />
+              
+              {/* Cinematic Shielding Layer — Always dark behind text for master-level readability */}
+              <div className="absolute inset-y-0 left-0 w-full md:w-[70%] bg-gradient-to-r from-black/80 via-black/40 to-transparent z-[1]" />
+              
+              {/* Dynamic Theme Bottom Dissolve — Fades into the page theme */}
+              <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-white via-white/10 to-transparent dark:from-charcoal-950 dark:via-transparent dark:to-transparent z-[2]" />
             </div>
 
-            {/* Content Layer (Clickable) */}
+            {/* Content Layer (Cinematic Overlay) */}
             <div 
               onClick={() => handleClick(episode._id)}
-              className={`absolute inset-0 flex flex-col justify-end md:justify-center p-6 md:p-14 lg:p-20 transition-all duration-700 delay-100 ${isActive ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0 pointer-events-none'}`}
+              className={`absolute inset-0 z-20 flex flex-col justify-end p-8 sm:p-12 md:p-16 lg:p-20 transition-all duration-1000 delay-200 ${isActive ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}
             >
-              <div className="max-w-3xl pointer-events-none">
+              <div className="max-w-4xl pointer-events-none drop-shadow-2xl">
                 {/* Spotlight Badge */}
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-teal-500/20 text-teal-400 border border-teal-500/30 rounded-lg font-bold text-sm md:text-base mb-4 backdrop-blur-sm shadow-sm">
-                  Spotlight #{index + 1}
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-teal-500/20 text-teal-400 border border-teal-500/30 rounded-full font-bold text-[10px] uppercase tracking-widest mb-4 backdrop-blur-md">
+                   <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+                   Spotlight #{index + 1}
                 </div>
 
-                {/* Title */}
-                <h1 className="font-display text-3xl sm:text-5xl md:text-6xl font-black text-white mb-4 leading-tight drop-shadow-xl line-clamp-2">
+                {/* Title — Optimized for all poster types */}
+                <h1 className="font-display text-4xl sm:text-5xl md:text-7xl font-black text-white mb-4 leading-[0.95] tracking-tighter drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] max-w-3xl">
                   {series?.title}
                 </h1>
 
-                {/* Meta details */}
-                <div className="flex flex-wrap items-center gap-3 text-xs md:text-sm font-semibold text-slate-300 mb-6 drop-shadow-md">
-                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/10 backdrop-blur-md text-white">
-                    <span className="text-teal-400">▶</span> {episode?.title}
+                {/* Meta Matrix */}
+                <div className="flex flex-wrap items-center gap-3 text-sm font-bold text-slate-200 mb-6 drop-shadow-md">
+                  <span className="text-teal-400 flex items-center gap-2">
+                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M7 6v12l10-6z"/></svg>
+                    EP {episode?.number || 1}
                   </span>
+                  <div className="h-4 w-px bg-white/20" />
                   {series?.genres?.slice(0,2).map(g => (
-                     <span key={g} className="px-2 py-0.5 rounded-md border border-white/20 text-white/80 bg-black/20 backdrop-blur-sm">{g}</span>
+                     <span key={g} className="text-white/80 uppercase tracking-tight">{g}</span>
                   ))}
-                  <span className="px-2 py-0.5 rounded-md border border-white/20 text-white/80 bg-black/20 backdrop-blur-sm">{series?.releaseYear}</span>
                 </div>
 
-                {/* Description */}
-                <p className="text-sm md:text-base text-slate-300/90 max-w-2xl line-clamp-3 mb-4 leading-relaxed font-medium drop-shadow-md">
+                {/* Cinematic Description — Fixed Readability */}
+                <p className="text-sm md:text-base text-white/90 max-w-xl line-clamp-3 mb-8 leading-relaxed font-medium drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
                   {series?.description || episode?.description}
                 </p>
                 
-                <p className="inline-flex items-center gap-2 text-sm font-bold text-teal-400 transition-colors drop-shadow">
-                  Tap to watch <span className="text-lg">›</span>
-                </p>
+                {/* Action Row */}
+                {/* Action Row */}
+                <div className="flex items-center gap-4 pointer-events-auto">
+                   <button 
+                     onClick={(e) => { e.stopPropagation(); handleClick(episode._id); }}
+                     className="px-8 py-3.5 bg-teal-500 hover:bg-teal-400 text-charcoal-950 font-black rounded-xl transition-all duration-300 flex items-center gap-2.5 transform hover:scale-105 shadow-xl shadow-teal-500/30"
+                   >
+                     <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                     WATCH NOW
+                   </button>
+                   
+                   <button 
+                     onClick={(e) => { e.stopPropagation(); navigate(`/series/${series._id}`); }}
+                     className="px-8 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all backdrop-blur-md border border-white/20 flex items-center gap-2.5"
+                   >
+                     <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                     </svg>
+                     DETAILS
+                   </button>
+                </div>
+
+
               </div>
             </div>
           </div>
         );
       })}
 
-      {/* Navigation Controls (Hidden on small mobile) */}
-      <div className="hidden sm:flex absolute right-6 md:right-10 bottom-6 md:bottom-1/2 md:translate-y-1/2 flex-col gap-3 z-20">
+      {/* Modern Unbalanced Navigation Controls */}
+      <div className="absolute right-8 md:right-16 bottom-10 md:bottom-16 z-30 flex items-center gap-2">
         <button 
           onClick={prevSlide}
-          className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full bg-white/50 hover:bg-teal-500 text-slate-800 hover:text-white border border-slate-300 hover:border-transparent dark:bg-black/40 dark:text-white dark:border-white/10 backdrop-blur-md transition-all group-hover:opacity-100 md:opacity-0 shadow-md dark:shadow-none"
+          className="w-12 h-12 flex items-center justify-center rounded-xl bg-black/20 hover:bg-black/40 text-white border border-white/10 backdrop-blur-md transition-all active:scale-95"
           aria-label="Previous Slide"
         >
-          <span className="text-xl md:text-2xl ml-[-2px]">‹</span>
+          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
         </button>
         <button 
           onClick={nextSlide}
-          className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full bg-white/50 hover:bg-teal-500 text-slate-800 hover:text-white border border-slate-300 hover:border-transparent dark:bg-black/40 dark:text-white dark:border-white/10 backdrop-blur-md transition-all group-hover:opacity-100 md:opacity-0 shadow-md dark:shadow-none"
+          className="w-12 h-12 flex items-center justify-center rounded-xl bg-black/20 hover:bg-black/40 text-white border border-white/10 backdrop-blur-md transition-all active:scale-95"
           aria-label="Next Slide"
         >
-          <span className="text-xl md:text-2xl mr-[-2px]">›</span>
+          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
         </button>
       </div>
 
-      {/* Pagination Indicators */}
-      <div className="absolute bottom-4 right-6 sm:bottom-6 md:right-14 z-20 flex items-center gap-2">
+      {/* Minimalism Pagination Indicators */}
+      <div className="absolute left-8 sm:left-12 bottom-6 z-30 flex items-center gap-2">
         {items.map((_, idx) => (
           <button
             key={idx}
             onClick={() => goToSlide(idx)}
-            className={`transition-all duration-300 rounded-full dark:bg-white bg-slate-800 ${
-              idx === currentIndex ? 'w-6 h-1.5 opacity-100' : 'w-1.5 h-1.5 opacity-30 hover:opacity-100'
+            className={`transition-all duration-500 rounded-full ${
+              idx === currentIndex ? 'w-8 h-1 bg-teal-500' : 'w-1.5 h-1 bg-white/20 hover:bg-white/40'
             }`}
             aria-label={`Go to slide ${idx + 1}`}
           />
@@ -176,3 +202,6 @@ export default function SpotlightSlider({ items }) {
     </div>
   );
 }
+
+
+

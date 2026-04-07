@@ -98,70 +98,77 @@ export default function Home() {
   const recentValid = (recent || []).filter((row) => row.series && row.episode);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10 sm:py-12">
-      {loading ? (
-        <div className="w-full h-[450px] sm:h-[500px] md:h-[600px] mb-14 rounded-3xl bg-slate-200/50 dark:bg-charcoal-850 animate-pulse border border-slate-300/30 dark:border-white/5" />
-      ) : trending.length > 0 ? (
-        <SpotlightSlider items={trending.slice(0, 10)} />
-      ) : null}
-
-      {user && (
-        <EpisodeStrip
-          title="Continue watching"
-          subtitle="Resume where you left off"
-          items={cont.map((x) => ({
-            episode: x.episode,
-            series: x.series,
-          }))}
-          loading={userLoading}
-          emptyTitle="No shows in progress"
-          emptyDescription="Start watching something — we'll surface it here when you're partway through an episode."
-          emptyIcon="▶"
-        />
-      )}
-
-      <EpisodeStrip
-        title="Trending now"
-        subtitle="Weighted by views, likes, and recent activity"
-        items={trending.map((x) => ({ episode: x.episode, series: x.series }))}
-        loading={loading}
-        emptyTitle="No trending picks yet"
-        emptyDescription="As people watch and like episodes, trending titles will appear here."
-        emptyIcon="🔥"
-      />
-
-      {user && rec.length > 0 && (
-        <EpisodeStrip
-          title="Recommended for you"
-          subtitle="Based on your history, likes, and genres"
-          items={rec.map((x) => ({ episode: x.episode, series: x.series, pearsonPredicted: x.pearsonPredicted, mathProof: x.mathProof }))}
-          loading={false}
-          emptyTitle="No recommendations yet"
-          emptyDescription="Watch a few episodes and we'll tune suggestions to your taste."
-          emptyIcon="💡"
-        />
-      )}
-
-      <section className="mb-14">
-        <SectionHeader title="Recently added" subtitle="Newest episodes in your library" />
+    <div className="min-h-screen bg-white dark:bg-charcoal-950 transition-colors">
+      {/* Cinematic Hero Section — Full Width */}
+      <section className="w-full relative">
         {loading ? (
-          <RowSkeleton />
-        ) : recentValid.length === 0 ? (
-          <EmptyState
-            title="No recently added content"
-            description="There aren't any new episodes to show yet. Add series and episodes from the admin workflow, then they'll land here automatically."
-            icon="🎬"
-            actionLabel="Browse library"
-            actionTo="/browse"
-          />
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {recentValid.map((row) => (
-              <SeriesCard key={row.episode._id} series={row.series} episodeId={row.episode._id} />
-            ))}
-          </div>
-        )}
+          <div className="w-full h-[450px] sm:h-[500px] md:h-[600px] bg-slate-200/50 dark:bg-charcoal-900 animate-pulse" />
+        ) : trending.length > 0 ? (
+          <SpotlightSlider items={trending.slice(0, 10)} />
+        ) : null}
       </section>
+
+      {/* Main Content Sections — Constrained */}
+      <div className="max-w-7xl mx-auto px-4 py-10 sm:py-16">
+        {user && (
+          <EpisodeStrip
+            title="Continue watching"
+            subtitle="Resume where you left off"
+            items={cont.map((x) => ({
+              episode: x.episode,
+              series: x.series,
+            }))}
+            loading={userLoading}
+            emptyTitle="No shows in progress"
+            emptyDescription="Start watching something — we'll surface it here when you're partway through an episode."
+            emptyIcon="▶"
+          />
+        )}
+
+        <EpisodeStrip
+          title="Trending now"
+          subtitle="Weighted by views, likes, and recent activity"
+          items={trending.map((x) => ({ episode: x.episode, series: x.series }))}
+          loading={loading}
+          emptyTitle="No trending picks yet"
+          emptyDescription="As people watch and like episodes, trending titles will appear here."
+          emptyIcon="🔥"
+        />
+
+        {user && rec.length > 0 && (
+          <EpisodeStrip
+            title="Recommended for you"
+            subtitle="Based on your history, likes, and genres"
+            items={rec.map((x) => ({ episode: x.episode, series: x.series, pearsonPredicted: x.pearsonPredicted, mathProof: x.mathProof }))}
+            loading={false}
+            emptyTitle="No recommendations yet"
+            emptyDescription="Watch a few episodes and we'll tune suggestions to your taste."
+            emptyIcon="💡"
+          />
+        )}
+
+        <section className="mb-14">
+          <SectionHeader title="Recently added" subtitle="Newest episodes in your library" />
+          {loading ? (
+            <RowSkeleton />
+          ) : recentValid.length === 0 ? (
+            <EmptyState
+              title="No recently added content"
+              description="There aren't any new episodes to show yet. Add series and episodes from the admin workflow, then they'll land here automatically."
+              icon="🎬"
+              actionLabel="Browse library"
+              actionTo="/browse"
+            />
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {recentValid.map((row) => (
+                <SeriesCard key={row.episode._id} series={row.series} episodeId={row.episode._id} />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
+
