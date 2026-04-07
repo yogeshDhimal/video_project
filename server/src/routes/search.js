@@ -33,6 +33,8 @@ router.get(
   '/',
   [
     query('q').optional().isString(),
+    query('title').optional().isString(),
+    query('tag').optional().isString(),
     query('genre').optional().isString(),
     query('year').optional().isInt(),
     query('sort').optional().isIn(['relevance', 'year', 'popularity']),
@@ -40,8 +42,10 @@ router.get(
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-    const { q, genre, year, sort } = req.query;
+    const { q, title, tag, genre, year, sort } = req.query;
     const { series: allSeries, episodes: allEps } = await loadSearchCorpus();
+
+    const isActiveSearch = !!(q?.trim() || title?.trim() || tag?.trim());
 
     let seriesResults = allSeries.filter((s) => {
       if (genre && !(s.genres || []).includes(genre)) return false;
@@ -61,32 +65,66 @@ router.get(
       return true;
     });
 
-    if (q && String(q).trim()) {
+    // Ensure we always have some trending results as a fallback
+    const trendingFallback = [...allSeries]
+      .sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0))
+      .slice(0, 30);
+
+
+    // Targeted Split Search Logic
+    if (isActiveSearch && q?.trim()) {
       const fuseS = createFuzzyIndex(seriesResults, ['title', 'description', 'tags']);
-      const fuseE = createFuzzyIndex(episodeResults, ['title', 'description']);
-      seriesResults = fuseS.search(q).map((r) => ({ ...r.item, _score: r.score }));
-      episodeResults = fuseE.search(q).map((r) => ({ ...r.item, _score: r.score }));
+      const rawResults = fuseS.search(q);
+      
+      // ULTRA-PRECISION GATE: Only keep results with a score < 0.2
+      seriesResults = rawResults
+        .filter(r => r.score < 0.2)
+        .map(r => r.item);
+
+      const fuseE = createFuzzyIndex(episodeResults, ['title']);
+      episodeResults = fuseE.search(q)
+        .filter(r => r.score < 0.2)
+        .map(r => r.item);
+
+      // Handle Sorting
       if (sort === 'year') {
         seriesResults.sort((a, b) => (b.releaseYear || 0) - (a.releaseYear || 0));
       } else if (sort === 'popularity') {
         seriesResults.sort((a, b) => (b.totalViews || 0) - (a.totalViews || 0));
-        episodeResults.sort((a, b) => (b.views || 0) - (a.views || 0));
       }
+    } else if (isActiveSearch) {
+       if (title?.trim()) {
+         const fuseT = createFuzzyIndex(seriesResults, ['title']);
+         seriesResults = fuseT.search(title).filter(r => r.score < 0.2).map(r => r.item);
+       }
+       if (tag?.trim()) {
+         const fuseTag = createFuzzyIndex(seriesResults, ['genres', 'tags']);
+         seriesResults = fuseTag.search(tag).filter(r => r.score < 0.2).map(r => r.item);
+       }
     } else {
-      if (sort === 'year') {
-        seriesResults.sort((a, b) => (b.releaseYear || 0) - (a.releaseYear || 0));
-      } else {
-        seriesResults.sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0));
-      }
+      // Direct Trending Result
+      seriesResults = trendingFallback;
       episodeResults.sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0));
     }
 
+    // IF search was active but no matches found, swap in trending as 'recommendations'
+    const finalSeries = (isActiveSearch && seriesResults.length === 0) 
+      ? trendingFallback 
+      : seriesResults.slice(0, 40);
+
+    const matchFound = isActiveSearch && seriesResults.length > 0;
+
     res.json({
-      series: seriesResults.slice(0, 40),
+      series: finalSeries,
       episodes: episodeResults.slice(0, 40),
+      isSearch: isActiveSearch,
+      matchFound: matchFound
     });
   }
 );
+
+
+
 
 router.get('/suggest', [query('q').isString().trim().isLength({ min: 1, max: 80 })], async (req, res) => {
   const errors = validationResult(req);

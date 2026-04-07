@@ -17,6 +17,9 @@ async function main() {
   }
   await connectDB(env.mongoUri);
   const server = http.createServer(app);
+  // Increase keep-alive timeouts to prevent ECONNRESET issues with Vite proxy
+  server.keepAliveTimeout = 65000;
+  server.headersTimeout = 66000;
   initSocket(server, app);
   server.on('error', (e) => {
     if (e.code === 'EADDRINUSE') {

@@ -94,95 +94,118 @@ function containsSubstring(target, query) {
  * @returns {{ search: (query: string) => { item: Object, score: number }[] }}
  */
 function createFuzzyIndex(items, keys, options = {}) {
-  const threshold = options.threshold || 0.45;
+  const threshold = options.threshold || 0.2;
+
+  // Field Weighting: Lower penalty = Higher priority
+  const fieldPenalties = {
+    title: 0,
+    tags: 5,
+    genres: 5,
+    description: 10,
+  };
 
   return {
     search(query) {
       if (!query || !String(query).trim()) {
-        return items.map(item => ({ item, score: 0 }));
+        return items
+          .map(item => ({ item, score: 0 }))
+          .sort((a, b) => (b.item.trendingScore || 0) - (a.item.trendingScore || 0));
       }
       const clean = String(query).trim().toLowerCase();
-      const queryWords = clean.split(/\s+/);
+      const queryWords = clean.split(/\s+/).filter(w => w.length > 0);
 
-      const exactHits = [];
-      const exactSet = new Set();
-      const fuzzyHits = [];
+      const results = [];
 
       for (const item of items) {
-        let bestScore = Infinity;
-        let isExact = false;
+        let bestFinalTier = Infinity;
+        let bestFuzzyScore = Infinity;
 
         for (const key of keys) {
           const val = item[key];
           if (!val) continue;
 
-          // Handle arrays (e.g., tags, genres)
+          const penalty = fieldPenalties[key] || 0;
           const values = Array.isArray(val) ? val : [val];
 
           for (const v of values) {
             const str = String(v).toLowerCase();
+            const words = str.split(/\s+/).filter(w => w.length > 0);
+            let currentBaseTier = -1;
+            let currentFuzzyScore = 1;
 
-            // Priority 1: Exact substring match
-            if (containsSubstring(str, clean)) {
-              isExact = true;
-              bestScore = 0;
-              break;
+            // Tier 0: Exact Match
+            if (str === clean) {
+              currentBaseTier = 0;
+              currentFuzzyScore = 0;
+            } 
+            // Tier 1: Starts With (Prefix)
+            else if (str.startsWith(clean)) {
+              currentBaseTier = 1;
+              currentFuzzyScore = 0;
             }
-
-            // Priority 2: Aggregated word-level fuzzy matching
-            // Find the best match for *each* query word, and average the distances.
-            // This prevents a single random matched word from overpowering the whole result.
-            let sumDist = 0;
-            const targetWords = str.split(/\s+/);
-            
-            for (const qw of queryWords) {
-              let bestWordDist = 1; // 1 represents a complete mismatch
-              for (const tw of targetWords) {
-                // Exact substring counts as a perfect word match
-                if (tw.includes(qw) || qw.includes(tw)) {
-                  bestWordDist = 0;
-                  break;
+            // Tier 2: Word-Level Prefix
+            else if (words.some(w => w.startsWith(clean))) {
+              currentBaseTier = 2;
+              currentFuzzyScore = 0;
+            }
+            // Tier 3: Fuzzy Logic
+            else {
+              let sumDist = 0;
+              for (const qw of queryWords) {
+                let minWordDist = 1;
+                for (const tw of words) {
+                  if (tw === qw) {
+                    minWordDist = 0;
+                    break;
+                  }
+                  const dist = normalizedDistance(qw, tw);
+                  if (dist < minWordDist) minWordDist = dist;
                 }
-                const dist = normalizedDistance(qw, tw);
-                if (dist < bestWordDist) {
-                  bestWordDist = dist;
-                }
+                sumDist += minWordDist;
               }
-              sumDist += bestWordDist;
+              const avgDist = sumDist / queryWords.length;
+              if (avgDist <= threshold) {
+                currentBaseTier = 3;
+                currentFuzzyScore = avgDist;
+              }
             }
-            
-            const avgDist = sumDist / queryWords.length;
-            if (avgDist < bestScore) {
-              bestScore = avgDist;
+
+            if (currentBaseTier !== -1) {
+              const finalTier = currentBaseTier + penalty;
+              if (finalTier < bestFinalTier || (finalTier === bestFinalTier && currentFuzzyScore < bestFuzzyScore)) {
+                bestFinalTier = finalTier;
+                bestFuzzyScore = currentFuzzyScore;
+              }
             }
           }
-          if (isExact) break;
+          if (bestFinalTier === 0) break;
         }
 
-        const id = item._id ? item._id.toString() : JSON.stringify(item);
-
-        if (isExact) {
-          exactHits.push({ item, score: 0 });
-          exactSet.add(id);
-        } else if (bestScore <= threshold) {
-          fuzzyHits.push({ item, score: bestScore });
-        }
-      }
-
-      // Sort fuzzy hits by score (lower = better match)
-      fuzzyHits.sort((a, b) => a.score - b.score);
-
-      // Combine: exact matches first, then fuzzy matches (avoiding duplicates)
-      const combined = [...exactHits];
-      for (const fh of fuzzyHits) {
-        const id = fh.item._id ? fh.item._id.toString() : JSON.stringify(fh.item);
-        if (!exactSet.has(id)) {
-          combined.push(fh);
+        if (bestFinalTier !== Infinity) {
+          results.push({
+            item,
+            tier: bestFinalTier,
+            score: bestFuzzyScore,
+            trending: item.trendingScore || 0
+          });
         }
       }
 
-      return combined;
+
+
+      // Professional Sorting:
+      // 1. Tier (0=Exact, 1=Prefix, 2=Contains, 3=Fuzzy)
+      // 2. Score (Lower is better for fuzzy)
+      // 3. Trending Score (Higher is better for ties)
+      return results
+        .sort((a, b) => {
+          if (a.tier !== b.tier) return a.tier - b.tier;
+          if (a.score !== b.score) return a.score - b.score;
+          return b.trending - a.trending;
+        })
+        .map(({ item, score }) => ({ item, score }));
     },
+
   };
 }
 
