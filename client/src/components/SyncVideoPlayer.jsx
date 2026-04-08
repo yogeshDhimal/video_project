@@ -35,6 +35,9 @@ export default function SyncVideoPlayer({
   const [qualityKey, setQualityKey] = useState('');
   const [fs, setFs] = useState(false);
   const lastSync = useRef(null); // Track when we last force-synced to avoid jitter
+  // Retry logic: auto-retry on network error (e.g. ECONNRESET on first load)
+  const retryCount = useRef(0);
+  const retryTimer = useRef(null);
 
   // Pick first quality key when episode loads
   useEffect(() => {
@@ -49,6 +52,12 @@ export default function SyncVideoPlayer({
     if (!episodeId || !qualityKey) return '';
     return streamUrl(episodeId, qualityKey, token);
   }, [episodeId, qualityKey, token]);
+
+  // Reset retry counter whenever the stream source changes
+  useEffect(() => {
+    retryCount.current = 0;
+    clearTimeout(retryTimer.current);
+  }, [src]);
 
   // Attach native video event listeners for state mirroring
   useEffect(() => {
@@ -146,6 +155,20 @@ export default function SyncVideoPlayer({
         onPause={handlePause}
         onSeeked={handleSeeked}
         onEnded={onEnded}
+        onError={() => {
+          // Auto-retry up to 3 times when the stream fails (e.g. ECONNRESET on first load)
+          if (retryCount.current < 3) {
+            retryCount.current += 1;
+            clearTimeout(retryTimer.current);
+            retryTimer.current = setTimeout(() => {
+              const v = videoRef.current;
+              if (v) {
+                v.load();
+                v.play().catch(() => {});
+              }
+            }, 1500);
+          }
+        }}
         onRateChange={() => {
           const v = videoRef.current;
           if (v) setRate(v.playbackRate);

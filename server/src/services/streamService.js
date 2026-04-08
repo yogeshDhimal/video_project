@@ -41,9 +41,12 @@ function sendVideoRange(req, res, absoluteFilePath) {
           'Cache-Control': 'public, max-age=0',
         });
         const stream = fs.createReadStream(absoluteFilePath, { start, end });
-        stream.on('error', () => {
+        // Destroy stream cleanly when client disconnects (prevents ECONNRESET errors)
+        res.on('close', () => { stream.destroy(); resolve(); });
+        stream.on('error', (err) => {
+          if (err.code === 'ECONNRESET' || err.code === 'ERR_STREAM_DESTROYED') return resolve();
           if (!res.headersSent) res.status(500).end();
-          reject(new Error('stream error'));
+          reject(err);
         });
         stream.pipe(res);
         stream.on('end', () => resolve());
@@ -55,9 +58,12 @@ function sendVideoRange(req, res, absoluteFilePath) {
           'Cache-Control': 'public, max-age=0',
         });
         const stream = fs.createReadStream(absoluteFilePath);
-        stream.on('error', () => {
+        // Destroy stream cleanly when client disconnects (prevents ECONNRESET errors)
+        res.on('close', () => { stream.destroy(); resolve(); });
+        stream.on('error', (err) => {
+          if (err.code === 'ECONNRESET' || err.code === 'ERR_STREAM_DESTROYED') return resolve();
           if (!res.headersSent) res.status(500).end();
-          reject(new Error('stream error'));
+          reject(err);
         });
         stream.pipe(res);
         stream.on('end', () => resolve());
