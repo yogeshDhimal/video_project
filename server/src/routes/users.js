@@ -36,6 +36,37 @@ router.post('/avatar', authenticate, uploadAvatar.single('avatar'), async (req, 
   res.json({ user: req.user });
 });
 
+router.post(
+  '/change-password',
+  authenticate,
+  [
+    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters'),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const { currentPassword, newPassword } = req.body;
+
+    // Fetch user with password field
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Verify current password
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    // Update password (pre-save hook will hash it)
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: 'Password changed successfully' });
+  }
+);
+
 router.get('/:id/public', async (req, res) => {
   const u = await User.findById(req.params.id).select('username avatar createdAt');
   if (!u) return res.status(404).json({ message: 'Not found' });

@@ -41,8 +41,42 @@ router.get('/continue', authenticate, async (req, res) => {
 });
 
 router.get('/', authenticate, async (req, res) => {
-  const rows = await WatchHistory.find({ userId: req.user._id }).sort({ lastWatchedAt: -1 }).limit(100).lean();
-  res.json({ items: rows });
+  const rows = await WatchHistory.find({ userId: req.user._id })
+    .sort({ lastWatchedAt: -1 })
+    .limit(100)
+    .lean();
+  
+  // Populate episode, season, and series data
+  const epIds = rows.map((r) => r.episodeId);
+  const episodes = await Episode.find({ _id: { $in: epIds } }).lean();
+  const emap = Object.fromEntries(episodes.map((e) => [e._id.toString(), e]));
+  
+  const seasons = await Season.find({ _id: { $in: episodes.map((e) => e.seasonId) } }).lean();
+  const smap = Object.fromEntries(seasons.map((s) => [s._id.toString(), s]));
+  
+  const series = await Series.find({ _id: { $in: seasons.map((s) => s.seriesId) } }).lean();
+  const seriesMap = Object.fromEntries(series.map((s) => [s._id.toString(), s]));
+
+  const items = rows
+    .map((r) => {
+      const ep = emap[r.episodeId.toString()];
+      if (!ep) return null;
+      const se = smap[ep.seasonId.toString()];
+      const ser = se ? seriesMap[se.seriesId.toString()] : null;
+      return {
+        _id: r._id,
+        progressSeconds: r.progressSeconds,
+        durationSeconds: r.durationSeconds,
+        completed: r.completed,
+        lastWatchedAt: r.lastWatchedAt,
+        episode: ep,
+        season: se,
+        series: ser,
+      };
+    })
+    .filter((item) => item !== null);
+
+  res.json({ items });
 });
 
 router.post(
