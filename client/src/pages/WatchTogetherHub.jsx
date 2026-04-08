@@ -4,6 +4,7 @@ import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import Spinner from '../components/Spinner';
 import PinEntryModal from '../components/PinEntryModal';
+import ConfirmModal from '../components/ConfirmModal';
 import { toast } from 'sonner';
 
 function CountdownTimer({ targetDate }) {
@@ -39,6 +40,10 @@ export default function WatchTogetherHub() {
   const [pinError, setPinError] = useState('');
   const [pinLoading, setPinLoading] = useState(false);
 
+  // Delete modal state
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, roomId: null });
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   useEffect(() => {
     const fetchRooms = async () => {
       setLoading(true);
@@ -58,13 +63,23 @@ export default function WatchTogetherHub() {
     fetchRooms();
   }, [tab, user]);
 
-  const deleteRoom = async (id) => {
-    if (!confirm('Are you sure you want to delete this room?')) return;
+  const promptDeleteRoom = (id) => {
+    setDeleteModal({ isOpen: true, roomId: id });
+  };
+
+  const confirmDeleteRoom = async () => {
+    const id = deleteModal.roomId;
+    if (!id) return;
+    setDeleteLoading(true);
     try {
       await api.delete(`/watch-rooms/${id}`);
       setMyRooms(myRooms.filter(r => r._id !== id));
+      toast.success('Room deleted successfully');
+      setDeleteModal({ isOpen: false, roomId: null });
     } catch (e) {
-      alert('Error deleting room');
+      toast.error('Error deleting room');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -171,7 +186,7 @@ export default function WatchTogetherHub() {
                      {room.status === 'scheduled' && <CountdownTimer targetDate={room.scheduledStartTime} />}
                    </div>
                    {tab === 'me' && (
-                     <button onClick={() => deleteRoom(room._id)} className="text-rose-500 hover:text-rose-700 text-xs font-semibold">
+                     <button onClick={() => promptDeleteRoom(room._id)} className="text-rose-500 hover:text-rose-700 text-xs font-semibold">
                        Delete
                      </button>
                    )}
@@ -217,6 +232,17 @@ export default function WatchTogetherHub() {
         onCancel={() => setPinModal({ isOpen: false, roomId: null })}
         isLoading={pinLoading}
         error={pinError}
+      />
+
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="Delete Watch Room"
+        description="Are you sure you want to delete this watch room? This action cannot be undone."
+        confirmLabel="Delete Room"
+        isDestructive={true}
+        isLoading={deleteLoading}
+        onConfirm={confirmDeleteRoom}
+        onCancel={() => setDeleteModal({ isOpen: false, roomId: null })}
       />
     </div>
   );

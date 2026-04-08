@@ -70,7 +70,7 @@ export default function WatchlistDropdown() {
                     <Link
                       to={`/series/${series._id}`}
                       onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-charcoal-800 transition-colors group"
+                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group"
                     >
                       <div className="w-12 h-16 shrink-0 overflow-hidden rounded-md bg-slate-200 dark:bg-black/50 border border-slate-200 dark:border-white/10">
                         <img 

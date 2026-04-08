@@ -10,6 +10,7 @@ export default function WatchTogetherCreate() {
   const [search, setSearch] = useState('');
   const [seriesResults, setSeriesResults] = useState([]);
   const [selectedSeries, setSelectedSeries] = useState(null);
+  const [showSeriesList, setShowSeriesList] = useState(false);
   const [seasons, setSeasons] = useState([]); 
   const [expandedSeason, setExpandedSeason] = useState(null);
   const [episodes, setEpisodes] = useState([]); // { _id, title, seriesTitle }
@@ -21,17 +22,24 @@ export default function WatchTogetherCreate() {
   useEffect(() => {
     const timer = setTimeout(async () => {
       if (!search.trim()) {
-        setSeriesResults([]);
-        setSelectedSeries(null);
+        if (showSeriesList) {
+          try {
+            const { data } = await api.get('/series', { params: { limit: 50, sort: 'popular' } });
+            setSeriesResults(data.items || []);
+          } catch(e) {}
+        } else {
+          setSeriesResults([]);
+        }
         return;
       }
       try {
         const { data } = await api.get('/search', { params: { q: search } });
         setSeriesResults(data.series || []);
+        setShowSeriesList(true);
       } catch (e) { /* ignore */ }
     }, 300);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, showSeriesList]);
 
   const selectSeries = async (s) => {
     try {
@@ -190,6 +198,7 @@ export default function WatchTogetherCreate() {
              <input
                type="text"
                value={search}
+               onClick={() => setShowSeriesList(true)}
                onChange={(e) => setSearch(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-charcoal-850 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50"
                placeholder="Search Series to add episodes..."
@@ -198,7 +207,7 @@ export default function WatchTogetherCreate() {
            
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 relative items-start">
              {/* Left side: Series Results */}
-             {search && seriesResults.length > 0 && (
+             {showSeriesList && seriesResults.length > 0 && (
                <div className="border border-slate-200 dark:border-white/10 rounded-xl bg-white dark:bg-charcoal-950 p-2 shadow-inner transition-all">
                  <h4 className="text-xs font-bold text-slate-400 uppercase px-2 mb-2 pt-2">Search Results</h4>
                  <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 dark:divide-white/5 pr-1">
