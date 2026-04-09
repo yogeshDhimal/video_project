@@ -145,7 +145,8 @@ export default function Navbar() {
           )}
 
           {/* Integrated Navbar Search */}
-          <div className={`relative flex-1 max-w-md transition-all duration-300 ${isSearchOpen ? 'translate-x-0 opacity-100' : 'hidden md:block'}`} ref={searchRef}>
+          {location.pathname !== '/search' && (
+            <div className={`relative flex-1 max-w-md transition-all duration-300 ${isSearchOpen ? 'translate-x-0 opacity-100' : 'hidden md:block'}`} ref={searchRef}>
             <form onSubmit={handleSearchSubmit} className="relative group">
               <input
                 type="text"
@@ -180,7 +181,8 @@ export default function Navbar() {
                 onResultClick={() => setIsSearchOpen(false)} 
               />
             )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">

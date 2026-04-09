@@ -73,18 +73,14 @@ router.get(
 
     // Targeted Split Search Logic
     if (isActiveSearch && q?.trim()) {
-      const fuseS = createFuzzyIndex(seriesResults, ['title', 'description', 'tags']);
+      const fuseS = createFuzzyIndex(seriesResults, ['title', 'description', 'tags'], { threshold: 0.25 });
       const rawResults = fuseS.search(q);
       
-      // ULTRA-PRECISION GATE: Only keep results with a score < 0.2
-      seriesResults = rawResults
-        .filter(r => r.score < 0.2)
-        .map(r => r.item);
+      // The internal search now uses the 0.25 threshold, so we just map items
+      seriesResults = rawResults.map(r => r.item);
 
-      const fuseE = createFuzzyIndex(episodeResults, ['title']);
-      episodeResults = fuseE.search(q)
-        .filter(r => r.score < 0.2)
-        .map(r => r.item);
+      const fuseE = createFuzzyIndex(episodeResults, ['title'], { threshold: 0.25 });
+      episodeResults = fuseE.search(q).map(r => r.item);
 
       // Handle Sorting
       if (sort === 'year') {
@@ -94,12 +90,12 @@ router.get(
       }
     } else if (isActiveSearch) {
        if (title?.trim()) {
-         const fuseT = createFuzzyIndex(seriesResults, ['title']);
-         seriesResults = fuseT.search(title).filter(r => r.score < 0.2).map(r => r.item);
+         const fuseT = createFuzzyIndex(seriesResults, ['title'], { threshold: 0.25 });
+         seriesResults = fuseT.search(title).map(r => r.item);
        }
        if (tag?.trim()) {
-         const fuseTag = createFuzzyIndex(seriesResults, ['genres', 'tags']);
-         seriesResults = fuseTag.search(tag).filter(r => r.score < 0.2).map(r => r.item);
+         const fuseTag = createFuzzyIndex(seriesResults, ['genres', 'tags'], { threshold: 0.25 });
+         seriesResults = fuseTag.search(tag).map(r => r.item);
        }
     } else {
       // Direct Trending Result
