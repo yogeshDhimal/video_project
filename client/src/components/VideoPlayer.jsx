@@ -24,6 +24,7 @@ export default function VideoPlayer({
   autoNextEnabled = true,
   introOutro = {},
   isSeries = false,
+  startTime = 0,
 }) {
   const videoRef = useRef(null);
   const [playing, setPlaying] = useState(false);
@@ -105,7 +106,13 @@ export default function VideoPlayer({
         reportAnalytics(v.currentTime, 8);
       }
     };
-    const onMeta = () => setDuration(v.duration || 0);
+    const onMeta = () => {
+      setDuration(v.duration || 0);
+      if (startTime > 0 && v.currentTime < 1) {
+        v.currentTime = startTime;
+        v.play().catch(() => {});
+      }
+    };
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
     const onFs = () => setFs(!!document.fullscreenElement);

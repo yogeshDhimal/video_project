@@ -67,6 +67,41 @@ router.post(
   }
 );
 
+router.put(
+  '/settings',
+  authenticate,
+  async (req, res) => {
+    if (typeof req.body.watchHistoryPaused === 'boolean') {
+      req.user.watchHistoryPaused = req.body.watchHistoryPaused;
+      await req.user.save();
+    }
+    res.json({ user: req.user });
+  }
+);
+
+router.put(
+  '/email',
+  authenticate,
+  [
+    body('email').isEmail().withMessage('Please provide a valid email'),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    try {
+      req.user.email = req.body.email;
+      await req.user.save();
+      res.json({ user: req.user, message: 'Email updated successfully' });
+    } catch (err) {
+      if (err.code === 11000) {
+        return res.status(400).json({ message: 'Email is already in use by another account' });
+      }
+      res.status(500).json({ message: 'Failed to update email' });
+    }
+  }
+);
+
 router.get('/:id/public', async (req, res) => {
   const u = await User.findById(req.params.id).select('username avatar createdAt');
   if (!u) return res.status(404).json({ message: 'Not found' });

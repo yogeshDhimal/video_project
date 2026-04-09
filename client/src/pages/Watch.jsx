@@ -181,6 +181,7 @@ export default function Watch() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchParams] = useSearchParams();
   const highlightedCommentId = searchParams.get('commentId');
+  const startTime = parseFloat(searchParams.get('t') || 0);
 
   useEffect(() => {
     if (comments.length > 0 && highlightedCommentId) {
@@ -509,6 +510,7 @@ export default function Watch() {
       <VideoPlayer
         episode={episode}
         token={token}
+        startTime={startTime}
         autoNextEnabled
         onPrev={prev?.episode ? () => navigate(`/watch/${prev.episode._id}`) : undefined}
         onNext={next?.episode ? () => navigate(`/watch/${next.episode._id}`) : undefined}

@@ -11,7 +11,7 @@ const { isContinueWatching } = require('../algorithms');
 const router = express.Router();
 
 router.get('/continue', authenticate, async (req, res) => {
-  const rows = await WatchHistory.find({ userId: req.user._id, completed: false })
+  const rows = await WatchHistory.find({ userId: req.user._id, completed: false, isHidden: { $ne: true } })
     .sort({ lastWatchedAt: -1 })
     .limit(30)
     .lean();
@@ -41,7 +41,7 @@ router.get('/continue', authenticate, async (req, res) => {
 });
 
 router.get('/', authenticate, async (req, res) => {
-  const rows = await WatchHistory.find({ userId: req.user._id })
+  const rows = await WatchHistory.find({ userId: req.user._id, isHidden: { $ne: true } })
     .sort({ lastWatchedAt: -1 })
     .limit(100)
     .lean();
@@ -99,6 +99,9 @@ router.post(
 
     if (!req.user) return res.json({ ok: true }); // No-op for guests
 
+    const isHidden = req.user.watchHistoryPaused ? true : false;
+    
+    // If it already exists and was hidden, but now they are watching it while NOT paused, we un-hide it!
     const doc = await WatchHistory.findOneAndUpdate(
       { userId: req.user._id, episodeId: ep._id },
       {
@@ -107,6 +110,7 @@ router.post(
           durationSeconds,
           completed,
           lastWatchedAt: new Date(),
+          isHidden, // Will be set to true if paused, false if tracking.
         },
       },
       { upsert: true, new: true }
@@ -114,5 +118,13 @@ router.post(
     res.json({ watchHistory: doc });
   }
 );
+
+router.post('/clear', authenticate, async (req, res) => {
+  await WatchHistory.updateMany(
+    { userId: req.user._id },
+    { $set: { isHidden: true } }
+  );
+  res.json({ message: 'History cleared' });
+});
 
 module.exports = router;

@@ -16,6 +16,7 @@ const userSchema = new mongoose.Schema(
     banReason: { type: String, default: '' },
     lastActiveAt: { type: Date, default: Date.now },
     preferredGenres: [{ type: String }],
+    watchHistoryPaused: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import SeriesCard from '../components/SeriesCard';
+import ConfirmModal from '../components/ConfirmModal';
 import { toast } from 'sonner';
 
 export default function Profile() {
   const { user, setUser } = useAuth();
   const [activeTab, setActiveTab] = useState('watchlist');
   const [username, setUsername] = useState(user?.username || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [watchHistoryPaused, setWatchHistoryPaused] = useState(user?.watchHistoryPaused || false);
   const [msg, setMsg] = useState('');
   const [bookmarks, setBookmarks] = useState([]);
   const [watchHistory, setWatchHistory] = useState([]);
@@ -21,6 +25,8 @@ export default function Profile() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+  
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const getAvatarSource = () => {
     if (!user?.avatar) return null;
@@ -75,6 +81,50 @@ export default function Profile() {
     setUser(data.user);
     setMsg('Profile updated successfully');
     setTimeout(() => setMsg(''), 3000);
+  };
+
+  const saveEmail = async (e) => {
+    e.preventDefault();
+    try {
+      const { data } = await api.put('/users/email', { email });
+      setUser(data.user);
+      toast.success('Email updated successfully');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update email');
+    }
+  };
+
+  const toggleHistoryPause = async () => {
+    try {
+      const newValue = !watchHistoryPaused;
+      const { data } = await api.put('/users/settings', { watchHistoryPaused: newValue });
+      setUser(data.user);
+      setWatchHistoryPaused(newValue);
+      toast.success(newValue ? 'Watch history paused' : 'Watch history resumed');
+    } catch (err) {
+      toast.error('Failed to update setting');
+    }
+  };
+
+  const clearHistory = async () => {
+    setConfirmAction({
+      title: 'Clear Watch History',
+      description: 'Are you sure you want to clear your watch history? This will remove all progress data from your profile view.',
+      confirmLabel: 'Clear from View',
+      cancelLabel: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await api.post('/watch-history/clear');
+          setWatchHistory([]);
+          setContinueWatching([]);
+          toast.success('History cleared successfully');
+        } catch (err) {
+          toast.error('Failed to clear history');
+        } finally {
+          setConfirmAction(null);
+        }
+      }
+    });
   };
 
   const uploadAvatar = async (e) => {
@@ -219,9 +269,10 @@ export default function Profile() {
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {continueWatching.slice(0, 4).map((item) => (
-                      <div
+                      <Link
                         key={item.history._id}
-                        className="bg-white dark:bg-charcoal-900/40 p-4 rounded-xl border border-slate-200 dark:border-white/5 hover:shadow-md transition-all group cursor-pointer"
+                        to={`/watch/${item.episode?._id}?t=${item.history.progressSeconds}`}
+                        className="bg-white dark:bg-charcoal-900/40 p-4 rounded-xl border border-slate-200 dark:border-white/5 hover:shadow-md transition-all group cursor-pointer block"
                       >
                         <div className="flex gap-4">
                           {item.series?.poster && (
@@ -234,7 +285,7 @@ export default function Profile() {
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-slate-900 dark:text-white text-sm mb-1 truncate">
+                            <h4 className="font-bold text-slate-900 dark:text-white text-sm mb-1 truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
                               {item.series?.title}
                             </h4>
                             <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">
@@ -256,13 +307,13 @@ export default function Profile() {
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
                               {Math.round(
-                                (item.history.progressSeconds / item.history.durationSeconds) * 100
+                                (item.history.progressSeconds / (item.history.durationSeconds || 1)) * 100
                               )}
                               % complete
                             </p>
                           </div>
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </div>
@@ -556,25 +607,69 @@ export default function Profile() {
                   </form>
                 </div>
 
-                {/* Account Info */}
+                {/* Account & Preferences */}
                 <div className="bg-white dark:bg-charcoal-900/40 p-6 rounded-2xl border border-slate-200 shadow-sm dark:border-white/5">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-                    Account Information
+                    Account & Preferences
                   </h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between py-2 border-b border-slate-100 dark:border-white/5">
-                      <span className="text-slate-500 dark:text-slate-400">Email</span>
-                      <span className="text-slate-900 dark:text-white font-medium">
-                        {user.email}
-                      </span>
+                  
+                  <form onSubmit={saveEmail} className="mb-6">
+                    <div className="mb-4">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 block">
+                        Email Address
+                      </label>
+                      <div className="flex gap-3">
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500 outline-none transition-all dark:bg-black/20 dark:border-white/10 dark:text-slate-100 dark:focus:bg-black/40 dark:focus:border-teal-400"
+                        />
+                        <button
+                          type="submit"
+                          className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium transition-colors shadow-md whitespace-nowrap"
+                        >
+                          Update
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex justify-between py-2 border-b border-slate-100 dark:border-white/5">
+                  </form>
+
+                  <div className="border-t border-slate-100 dark:border-white/5 pt-6 space-y-5">
+                    <div className="flex items-center justify-between px-1">
+                      <div>
+                        <h4 className="font-semibold text-slate-900 dark:text-white">Pause Watch History</h4>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                          Stop recording the episodes you watch.
+                        </p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" checked={watchHistoryPaused} onChange={toggleHistoryPause} />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-teal-500/40 rounded-full peer dark:bg-black/30 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-500 shadow-inner"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between px-1">
+                      <div>
+                        <h4 className="font-semibold text-slate-900 dark:text-white">Clear Watch History</h4>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                          Remove all watched episodes from your history.
+                        </p>
+                      </div>
+                      <button onClick={clearHistory} type="button" className="px-4 py-2 rounded-xl bg-rose-50 text-rose-600 font-semibold hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 transition-colors">
+                        Clear History
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-100 dark:border-white/5 pt-6 mt-6 space-y-3 text-sm">
+                    <div className="flex justify-between py-2 border-b border-slate-100 dark:border-white/5 px-1">
                       <span className="text-slate-500 dark:text-slate-400">Role</span>
                       <span className="text-slate-900 dark:text-white font-medium capitalize">
                         {user.role}
                       </span>
                     </div>
-                    <div className="flex justify-between py-2">
+                    <div className="flex justify-between py-2 px-1">
                       <span className="text-slate-500 dark:text-slate-400">Member Since</span>
                       <span className="text-slate-900 dark:text-white font-medium">
                         {new Date(user.createdAt).toLocaleDateString('en-US', {
@@ -590,6 +685,19 @@ export default function Profile() {
           )}
         </div>
       </div>
+
+      {confirmAction && (
+        <ConfirmModal
+          isOpen={true}
+          title={confirmAction.title}
+          description={confirmAction.description}
+          onConfirm={confirmAction.onConfirm}
+          onCancel={() => setConfirmAction(null)}
+          confirmLabel={confirmAction.confirmLabel}
+          cancelLabel={confirmAction.cancelLabel}
+          isDestructive={true}
+        />
+      )}
     </div>
   );
 }

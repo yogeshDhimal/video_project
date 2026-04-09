@@ -34,7 +34,7 @@ function EpisodeStrip({ title, subtitle, items, loading, emptyTitle, emptyDescri
       <SectionHeader title={title} subtitle={subtitle} />
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {items.map((row) => (
-          <SeriesCard key={row.episode?._id || row.series?._id} series={row.series} episodeId={row.episode._id} mathProof={row.mathProof} pearsonPredicted={row.pearsonPredicted} />
+          <SeriesCard key={row.episode?._id || row.series?._id} series={row.series} episodeId={row.episode._id} mathProof={row.mathProof} pearsonPredicted={row.pearsonPredicted} history={row.history} />
         ))}
       </div>
     </section>
@@ -117,6 +117,7 @@ export default function Home() {
             items={cont.map((x) => ({
               episode: x.episode,
               series: x.series,
+              history: x.history
             }))}
             loading={userLoading}
             emptyTitle="No shows in progress"
