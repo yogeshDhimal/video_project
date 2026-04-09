@@ -28,35 +28,8 @@ router.get('/', optionalAuth, async (req, res) => {
     userVotes = Object.fromEntries(votes.map(v => [v.commentId.toString(), v.value]));
   }
 
-  // 1. Map all comments with extra fields
-  const cMap = {};
-  allComments.forEach(c => {
-    cMap[c._id.toString()] = {
-      ...c,
-      user: umap[c.userId.toString()],
-      userVote: userVotes[c._id.toString()] || 0,
-      replies: []
-    };
-  });
-
-  // 2. Nesting logic
-  const roots = [];
-  allComments.forEach(c => {
-    const mapped = cMap[c._id.toString()];
-    if (c.parentId) {
-      const p = cMap[c.parentId.toString()];
-      if (p) {
-        p.replies.push(mapped);
-        // Sort replies chronologically
-        p.replies.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-      } else {
-        // Parent not found (perhaps deleted), treat as root or skip
-        roots.push(mapped);
-      }
-    } else {
-      roots.push(mapped);
-    }
-  });
+  const { buildCommentTree } = require('../algorithms/comment-hierarchy');
+  const roots = buildCommentTree(allComments, umap, userVotes);
 
   res.json({ comments: roots });
 });

@@ -34,6 +34,8 @@ export default function SyncVideoPlayer({
   const [rate, setRate] = useState(1);
   const [qualityKey, setQualityKey] = useState('');
   const [fs, setFs] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimerRef = useRef(null);
   const lastSync = useRef(null); // Track when we last force-synced to avoid jitter
   // Retry logic: auto-retry on network error (e.g. ECONNRESET on first load)
   const retryCount = useRef(0);
@@ -140,15 +142,43 @@ export default function SyncVideoPlayer({
     else document.exitFullscreen?.();
   };
 
+  const hideControls = useCallback(() => {
+    setShowControls(false);
+  }, []);
+
+  const resetControlsTimer = useCallback(() => {
+    setShowControls(true);
+    clearTimeout(controlsTimerRef.current);
+    if (isPlaying) {
+      controlsTimerRef.current = setTimeout(hideControls, 3000);
+    }
+  }, [isPlaying, hideControls]);
+
+  useEffect(() => {
+    if (isPlaying) {
+      resetControlsTimer();
+    } else {
+      setShowControls(true);
+      clearTimeout(controlsTimerRef.current);
+    }
+    return () => clearTimeout(controlsTimerRef.current);
+  }, [isPlaying, resetControlsTimer]);
+
   return (
-    <div className="relative rounded-xl overflow-hidden bg-black ring-1 ring-slate-300 dark:ring-white/10 shadow-2xl group">
+    <div className={`relative overflow-hidden bg-black transition-all duration-300 ${fs ? 'w-full h-full flex items-center justify-center rounded-none ring-0' : 'rounded-xl ring-1 ring-slate-300 dark:ring-white/10 shadow-2xl group'}`}>
       <video
         ref={videoRef}
         key={src}
         src={src}
-        onClick={togglePlay}
+        onClick={(e) => {
+          e.preventDefault();
+          if (isHost) togglePlay();
+          else resetControlsTimer();
+        }}
+        onMouseMove={resetControlsTimer}
+        onTouchStart={resetControlsTimer}
         tabIndex={isHost ? "0" : "-1"}
-        className={`w-full aspect-video bg-black ${isHost ? 'cursor-pointer' : 'pointer-events-none'}`}
+        className={`w-full aspect-video bg-black ${isHost ? 'cursor-pointer' : 'cursor-default'}`}
         playsInline
         preload="metadata"
         onPlay={handlePlay}
@@ -175,9 +205,9 @@ export default function SyncVideoPlayer({
         }}
       />
 
-      {/* Viewer overlay - blocks click-to-pause since host controls play state */}
+      {/* Viewer overlay logic adjusted to allow clicking for controls */}
       {!isHost && (
-        <div className="absolute inset-0 z-10" title="Host controls playback" />
+        <div className="absolute inset-0 z-10" onClick={resetControlsTimer} onMouseMove={resetControlsTimer} title="Host controls playback" />
       )}
 
       {/* Viewer sync status badge */}
@@ -192,7 +222,7 @@ export default function SyncVideoPlayer({
 
       {/* Viewer: frosted "Host Controls" bar — always visible on hover */}
       {!isHost && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div className={`absolute bottom-0 left-0 right-0 z-20 pointer-events-none transition-opacity duration-300 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <div className="bg-black/40 backdrop-blur-md border-t border-white/10 px-6 py-4 flex items-center justify-center gap-3">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400">
               <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
@@ -204,7 +234,7 @@ export default function SyncVideoPlayer({
 
       {/* Host: controls */}
       {isHost && (
-        <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-t from-black/90 to-transparent pointer-events-auto">
+        <div className={`absolute bottom-0 left-0 right-0 p-4 space-y-3 transition-opacity duration-300 bg-gradient-to-t from-black/90 to-transparent pointer-events-auto ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
           <div className="flex items-center gap-2 text-xs text-slate-300 flex-wrap">
             <button
               type="button"

@@ -8,6 +8,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import PinEntryModal from '../components/PinEntryModal';
 import Spinner from '../components/Spinner';
 import SyncVideoPlayer from '../components/SyncVideoPlayer';
+import DiscussionDrawer from '../components/DiscussionDrawer';
 
 export default function WatchRoomPage() {
   const { id } = useParams();
@@ -25,6 +26,8 @@ export default function WatchRoomPage() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [itemToReport, setItemToReport] = useState(null);
   const [isReporting, setIsReporting] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [activeDrawerTab, setActiveDrawerTab] = useState('chat');
   const socketRef = useRef(null);
 
   // Private room gate state
@@ -44,16 +47,10 @@ export default function WatchRoomPage() {
 
     api.get(`/watch-rooms/${id}`)
       .then(({ data }) => {
-        // Check if this is a private room requiring PIN
         if (data.room.requiresPin) {
-          // Check sessionStorage for prior authorization
           const cached = sessionStorage.getItem(`wr_auth_${id}`);
           if (cached === 'true') {
-            // Re-authorize via API then reload room data
             api.post(`/watch-rooms/${id}/join`, { pin: '0000' }).catch(() => {});
-            // Actually, sessionStorage means we already passed PIN once.
-            // Try fetching again — server should have us in authorized set.
-            // But server memory resets on restart, so we need to re-handle.
             setRequiresPin(true);
             setRoom(data.room);
             return;
@@ -75,7 +72,6 @@ export default function WatchRoomPage() {
       .catch(() => setError('Room not found or unavailable.'));
   }, [id, authLoading, user]);
 
-  // PIN submission handler
   const handlePinSubmit = async (pin) => {
     setPinLoading(true);
     setPinError('');
@@ -83,7 +79,6 @@ export default function WatchRoomPage() {
       const { data } = await api.post(`/watch-rooms/${id}/join`, { pin });
       if (data.authorized) {
         sessionStorage.setItem(`wr_auth_${id}`, 'true');
-        // Re-fetch the full room data now that we're authorized
         const { data: fullData } = await api.get(`/watch-rooms/${id}`);
         setRoom(fullData.room);
         setRequiresPin(false);
@@ -102,7 +97,6 @@ export default function WatchRoomPage() {
     }
   };
 
-  // Step 2: Connect socket once room is loaded AND authorized
   useEffect(() => {
     if (!room || !user || requiresPin) return;
     const token = localStorage.getItem('sv_token');
@@ -113,7 +107,6 @@ export default function WatchRoomPage() {
 
     socket.emit('join_watch_room', id);
 
-    // Override state from socket when host triggers events
     socket.on('watch_room_sync', ({ action, payload }) => {
       if (action === 'close_room') {
         setRoomClosed(true);
@@ -132,7 +125,6 @@ export default function WatchRoomPage() {
         setCurrentEpIdx(payload.index);
         setServerTime(0);
         setIsPlaying(true);
-        // Refresh full room to get updated currentEpisodeIndex
         api.get(`/watch-rooms/${id}`).then(({ data }) => setRoom(data.room)).catch(() => {});
       }
     });
@@ -152,7 +144,6 @@ export default function WatchRoomPage() {
     };
   }, [room, user, id]);
 
-  // Server-side clock interpolation (smooth time progress for viewers)
   useEffect(() => {
     if (!isPlaying) return;
     const interval = setInterval(() => {
@@ -161,7 +152,6 @@ export default function WatchRoomPage() {
     return () => clearInterval(interval);
   }, [isPlaying]);
 
-  // Host auto-close countdown timer
   useEffect(() => {
     if (closingCountdown === null) return;
     if (closingCountdown <= 0) {
@@ -232,9 +222,7 @@ export default function WatchRoomPage() {
     setIsReporting(true);
     try {
       await api.post(`/chat/${itemToReport}/report`);
-      toast.success("Flagged for review. Thank you for keeping ClickWatch safe!", {
-        description: "An administrator will check this out soon."
-      });
+      toast.success("Flagged for review. Thank you for keeping ClickWatch safe!");
     } catch {
       toast.error("Failed to report. Please try again.");
     } finally {
@@ -248,14 +236,12 @@ export default function WatchRoomPage() {
   if (error) return <div className="p-20 text-center font-semibold text-rose-500">{error}</div>;
   if (!room) return <div className="p-24 flex justify-center"><Spinner label="Connecting to room..." /></div>;
 
-  // PIN Gate — show modal for private rooms before full render
   if (requiresPin) {
     return (
       <div className="max-w-[1400px] mx-auto px-4 py-16">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-display font-bold text-slate-900 dark:text-white mb-2">{room.title}</h1>
           <p className="text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             This is a private room. Enter the PIN to continue.
           </p>
         </div>
@@ -271,19 +257,13 @@ export default function WatchRoomPage() {
   }
 
   const isHost = !!(user && room.hostId && (room.hostId._id?.toString() === user._id?.toString() || room.hostId?.toString() === user._id?.toString()));
-  const currentEpisode = room.episodes[currentEpIdx] || null; // This is a full populated episode object
+  const currentEpisode = room.episodes[currentEpIdx] || null;
 
   if (roomClosed) {
     return (
       <div className="max-w-[1400px] mx-auto px-4 py-32 text-center flex flex-col items-center justify-center animate-fadeUp">
-        <div className="w-20 h-20 bg-rose-100 dark:bg-rose-900/30 rounded-full flex items-center justify-center mb-6">
-          <span className="text-3xl">👋</span>
-        </div>
         <h1 className="text-3xl font-display font-bold text-slate-900 dark:text-white mb-3">Room Ended</h1>
-        <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-8">
-          The host has ended this watch room. Hope you enjoyed the session!
-        </p>
-        <Link to="/watch-together" className="px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-xl shadow-lg shadow-teal-500/30 transition-all">
+        <Link to="/watch-together" className="px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-xl shadow-lg">
           Browse Active Rooms
         </Link>
       </div>
@@ -291,41 +271,38 @@ export default function WatchRoomPage() {
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto px-4 py-6 text-slate-900 dark:text-slate-100">
-      <div className="flex flex-col lg:flex-row gap-6">
-
-        {/* Main Player Area */}
-        <div className="flex-1 min-w-0">
-          <div className="mb-4 flex items-center justify-between bg-teal-50 dark:bg-teal-900/10 p-4 rounded-xl border border-teal-100 dark:border-teal-500/20 gap-3 flex-wrap">
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold font-display text-teal-800 dark:text-teal-300 mb-1">
+    <div className="max-w-[1500px] mx-auto px-4 py-3 sm:py-6 text-slate-900 dark:text-slate-100 h-[calc(100dvh-64px)] sm:h-auto overflow-hidden sm:overflow-visible flex flex-col">
+      <div className="flex flex-col lg:grid lg:grid-cols-[1fr_380px] gap-8">
+        
+        {/* Main Column */}
+        <div className="min-w-0">
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between bg-white dark:bg-white/[0.02] p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-white/5 gap-4">
+            <div className="min-w-0">
+              <h1 className="text-lg md:text-2xl font-bold font-display text-slate-900 dark:text-white mb-2 underline decoration-teal-500/30 truncate">
                 {room.title}
               </h1>
               <div className="flex items-center gap-3">
-                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">
-                  {isHost ? '👑 You are hosting' : `👤 Hosted by ${room.hostId?.username}`}
+                <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-2 py-0.5 rounded shrink-0">
+                  {isHost ? 'Host' : 'Guest'}
                 </p>
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-teal-100/50 dark:bg-charcoal-800/80 border border-teal-200/50 dark:border-white/5 text-[10px] font-bold text-teal-700 dark:text-teal-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
-                  {viewers} {viewers === 1 ? 'Viewer' : 'Viewers'}
+                <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                  {viewers} Online
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-nowrap sm:flex-wrap items-center gap-3 w-full sm:w-auto">
               <button
-              onClick={copyToClipboard}
-              className={`shrink-0 px-4 py-2 border rounded-lg text-sm font-semibold transition-all ${
-                copied
-                  ? 'bg-teal-50 border-teal-300 text-teal-700 dark:bg-teal-900/30 dark:border-teal-500/30 dark:text-teal-400'
-                  : 'border-slate-300 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
-              }`}
+                onClick={copyToClipboard}
+                className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl border text-[11px] font-black uppercase tracking-widest transition-all ${
+                  copied ? 'bg-teal-600 border-teal-600 text-white shadow-lg' : 'border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
+                }`}
               >
-                {copied ? '✅ Copied!' : '🔗 Copy Invite'}
+                {copied ? 'Copied' : 'Invite'}
               </button>
               {isHost && (
                 <button
                   onClick={() => emitControl('close_room')}
-                  className="shrink-0 px-4 py-2 border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-900/20 dark:border-rose-500/30 dark:text-rose-400 dark:hover:bg-rose-900/40 rounded-lg text-sm font-semibold transition-all"
+                  className="flex-1 sm:flex-none px-5 py-2.5 bg-rose-50 dark:bg-rose-900/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-xl text-[11px] font-black uppercase tracking-widest"
                 >
                   End Room
                 </button>
@@ -333,36 +310,63 @@ export default function WatchRoomPage() {
             </div>
           </div>
 
+          {/* Persistent Room Chat (Mobile Only) - Dynamic height to fill screen */}
+          <div className="flex-1 min-h-0 lg:hidden mt-4 bg-white dark:bg-charcoal-900/60 rounded-3xl border border-slate-200 dark:border-white/5 overflow-hidden flex flex-col shadow-sm mb-4">
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50 dark:bg-white/5">
+               <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-pulse" />
+                  <h2 className="font-black uppercase tracking-widest text-[9px] text-slate-500 dark:text-slate-400">Room Chat</h2>
+               </div>
+               <span className="text-[9px] font-bold text-teal-600 dark:text-teal-400 border border-teal-500/20 px-2 py-0.5 rounded-full uppercase">Live</span>
+            </div>
+            
+            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar flex flex-col-reverse gap-3.5 bg-slate-50/30 dark:bg-transparent">
+               <div className="space-y-4">
+                  {chat.map((c, i) => (
+                    <div key={i} className="group/chat relative pr-6 animate-fadeIn items-start flex gap-2">
+                      <span className="font-black text-teal-600 dark:text-teal-400 text-[10px] uppercase shrink-0 mt-1">{c.username}:</span>
+                      <span className="text-sm text-slate-700 dark:text-slate-300 break-words leading-relaxed">{c.message}</span>
+                      {user && c._id && (
+                        <button
+                          onClick={() => handleReportChatMessage(c._id)}
+                          className="absolute right-0 top-0 opacity-0 group-hover/chat:opacity-100 text-[10px] text-slate-400 hover:text-rose-500 transition-all p-0.5"
+                        >
+                          🚩
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {chat.length === 0 && <p className="text-xs text-slate-400 italic text-center py-20 uppercase tracking-widest opacity-50 font-bold">No messages yet.</p>}
+               </div>
+            </div>
+
+            <form onSubmit={sendChat} className="p-3 border-t border-slate-100 dark:border-white/5 bg-white dark:bg-charcoal-850 flex gap-2">
+              <input
+                value={msg}
+                onChange={e => setMsg(e.target.value)}
+                placeholder="Message the room..."
+                className="flex-1 px-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-charcoal-850 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+              />
+              <button type="submit" className="px-4 py-2.5 bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md transition-colors">
+                Send
+              </button>
+            </form>
+          </div>
+
           {room.status === 'scheduled' ? (
             <div className="aspect-video flex flex-col items-center justify-center bg-black rounded-2xl ring-1 ring-white/10 mb-6 relative overflow-hidden">
-              <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(20,184,166,0.12),transparent_70%)]" />
-              <h2 className="text-2xl font-bold text-white z-10 mb-2">⏳ Room is Scheduled</h2>
-              <p className="text-slate-400 z-10 text-center px-8 text-sm">
-                The video will automatically start at the scheduled time. You can wait here or come back.
-              </p>
+              <h2 className="text-2xl font-bold text-white z-10 mb-2">Room is Scheduled</h2>
               {isHost && (
-                <button
-                  onClick={() => emitControl('play', { time: 0 })}
-                  className="z-10 mt-6 px-6 py-2.5 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl transition-colors shadow-lg"
-                >
-                  Start Now
-                </button>
+                <button onClick={() => emitControl('play', { time: 0 })} className="z-10 mt-6 px-8 py-3 bg-teal-600 text-white font-black uppercase tracking-widest rounded-xl">Start Now</button>
               )}
             </div>
           ) : closingCountdown !== null ? (
-            <div className="aspect-video flex flex-col items-center justify-center bg-rose-950/20 rounded-2xl ring-1 ring-rose-500/20 mb-6 relative overflow-hidden animate-fadeUp">
-              <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(244,63,94,0.05),transparent_70%)]" />
-              <h2 className="text-2xl md:text-3xl font-display font-bold text-rose-500 mb-3 z-10">Playlist Complete</h2>
-              <p className="text-slate-400 text-sm mb-6 z-10 text-center px-4">There are no more episodes in the queue. Auto-closing room...</p>
-              <div className="text-5xl md:text-7xl font-black text-rose-400 mb-10 animate-pulse z-10">{closingCountdown}s</div>
-              <div className="flex justify-center z-10">
-                <button onClick={() => emitControl('close_room')} className="px-10 py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-rose-600/20">
-                  End Room Now
-                </button>
-              </div>
+            <div className="aspect-video flex flex-col items-center justify-center bg-black rounded-2xl ring-1 ring-rose-500/20 mb-6">
+              <div className="text-5xl font-black text-rose-500 mb-4 animate-pulse">{closingCountdown}s</div>
+              <p className="text-slate-400 uppercase tracking-widest text-[10px] font-bold">Auto-closing room...</p>
             </div>
           ) : (
-            <div className="mb-6">
+            <div className="mb-0">
               {currentEpisode ? (
                 <SyncVideoPlayer
                   isHost={isHost}
@@ -376,98 +380,148 @@ export default function WatchRoomPage() {
                   onEnded={handleEnded}
                 />
               ) : (
-                <div className="aspect-video flex items-center justify-center bg-black rounded-2xl ring-1 ring-white/10 text-white font-semibold">
-                  No episodes in playlist.
-                </div>
+                <div className="aspect-video flex items-center justify-center bg-black rounded-3xl text-slate-500">Playlist Empty</div>
               )}
             </div>
           )}
+
+          {/* New Playlist Design below Player */}
+          <div className="bg-white dark:bg-white/[0.02] rounded-3xl border border-slate-200 dark:border-white/5 p-6 mt-8">
+             <div className="flex items-center justify-between mb-6">
+                <h3 className="font-black uppercase tracking-widest text-[11px] text-slate-500">Queue & Timeline</h3>
+                <span className="text-[10px] font-bold px-2.5 py-1 bg-slate-100 dark:bg-white/10 rounded-full">{room.episodes.length} Episodes</span>
+             </div>
+             <div className="space-y-3">
+                {room.episodes.map((ep, i) => {
+                  const isActive = currentEpIdx === i;
+                  return (
+                    <div key={ep._id || i} className={`p-4 rounded-2xl border transition-all flex items-center gap-4 ${isActive ? 'bg-teal-50 border-teal-200 dark:bg-teal-900/20 dark:border-teal-500/30' : 'bg-transparent border-slate-100 dark:border-white/5 hover:border-teal-500/30'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${isActive ? 'bg-teal-600 text-white shadow-lg shadow-teal-500/20' : 'bg-slate-100 dark:bg-white/10 text-slate-400'}`}>
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-bold truncate ${isActive ? 'text-teal-900 dark:text-teal-300' : 'text-slate-700 dark:text-slate-300'}`}>{ep.title || `Episode ${i + 1}`}</p>
+                        <p className="text-[10px] uppercase text-slate-400 tracking-tighter">{ep.seasonId?.seriesId?.title || 'Episode'}</p>
+                      </div>
+                      {isHost && !isActive && (
+                        <button onClick={() => emitControl('set_episode', { index: i })} className="p-2.5 bg-teal-600 text-white rounded-xl shadow-md hover:scale-105 active:scale-95 transition-all">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+             </div>
+          </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="w-full lg:w-80 shrink-0 flex flex-col gap-5">
-
-          {/* Chat */}
-          <div className="flex flex-col rounded-2xl bg-white border border-slate-200 shadow-sm dark:bg-charcoal-900/60 dark:border-white/10 overflow-hidden" style={{ height: '380px' }}>
-            <div className="p-3 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 font-semibold text-sm text-slate-800 dark:text-slate-200">
-              💬 Room Chat
-            </div>
-            <div className="flex-1 p-3 overflow-y-auto flex flex-col gap-2.5 text-sm">
-              {chat.map((c, i) => (
-                <div key={i} className="group/chat relative pr-6">
-                  <span className="font-bold text-teal-600 dark:text-teal-400 mr-1.5">{c.username}:</span>
-                  <span className="text-slate-700 dark:text-slate-300 break-words">{c.message}</span>
-                  {user && c._id && (
-                    <button
-                      onClick={() => handleReportChatMessage(c._id)}
-                      className="absolute right-0 top-0 opacity-0 group-hover/chat:opacity-100 text-[10px] text-slate-400 hover:text-rose-500 transition-all p-0.5"
-                      title="Report message"
-                    >
-                      🚩
-                    </button>
-                  )}
+        {/* Persistent Chat Sidebar (Hides when hub is open for wide mode) */}
+        {!isDrawerOpen && (
+          <div className="hidden lg:flex flex-col gap-4 animate-fadeIn">
+            <div className="rounded-3xl border border-slate-200 dark:border-white/5 bg-white dark:bg-charcoal-900/60 overflow-hidden flex flex-col h-[650px] shadow-sm sticky top-24">
+                <div className="p-5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50 dark:bg-white/5">
+                  <h2 className="font-black uppercase tracking-widest text-[11px] text-slate-500">Room Chat</h2>
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-teal-100 dark:bg-teal-900/40 text-[9px] font-black text-teal-700 dark:text-teal-400 rounded-lg">LIVE</div>
                 </div>
-              ))}
-              {chat.length === 0 && <p className="text-xs text-slate-400 italic text-center pt-6">No messages yet.</p>}
+                <div className="flex-1 p-5 overflow-y-auto custom-scrollbar flex flex-col-reverse gap-4">
+                  <div className="space-y-4">
+                      {chat.map((c, i) => (
+                        <div key={i} className="animate-fadeIn group/chat relative">
+                          <span className="font-bold text-teal-600 dark:text-teal-400 text-[11px] mr-2">{c.username}</span>
+                          <span className="text-[13px] text-slate-700 dark:text-slate-300 break-words leading-relaxed">{c.message}</span>
+                          {user && c._id && (
+                            <button onClick={() => handleReportChatMessage(c._id)} className="absolute right-0 top-0 opacity-0 group-hover/chat:opacity-100 text-[10px] text-slate-400 hover:text-rose-500 transition-all font-black uppercase">🚩</button>
+                          )}
+                        </div>
+                      ))}
+                      {!chat.length && <p className="text-slate-400 italic text-center text-xs py-20">No messages yet.</p>}
+                  </div>
+                </div>
+                <form onSubmit={sendChat} className="p-4 border-t border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-white/5 flex gap-2">
+                  <input
+                    value={msg}
+                    onChange={e => setMsg(e.target.value)}
+                    className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-charcoal-850 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                    placeholder="Message group..."
+                  />
+                  <button type="submit" className="px-4 py-3 bg-teal-600 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-md">Send</button>
+                </form>
             </div>
-            <form onSubmit={sendChat} className="p-2.5 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex gap-2">
-              <input
-                value={msg}
-                onChange={e => setMsg(e.target.value)}
-                type="text"
-                placeholder="Say something..."
-                className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-charcoal-850 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-              />
-              <button type="submit" className="px-3 py-2 bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold rounded-lg transition-colors">
-                Send
-              </button>
-            </form>
           </div>
+        )}
 
-          {/* Playlist */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:bg-charcoal-900/60 dark:border-white/10 p-4">
-            <h3 className="font-semibold text-sm mb-3 text-slate-900 dark:text-white uppercase tracking-wider">
-              📋 Playlist ({room.episodes.length})
-            </h3>
-            <ul className="space-y-1.5 overflow-y-auto max-h-72">
-              {room.episodes.map((ep, i) => {
-                const isActive = currentEpIdx === i;
-                const epTitle = ep.title || `Episode ${ep.number || i + 1}`;
-                return (
-                  <li
-                    key={ep._id || i}
-                    className={`p-2.5 rounded-xl text-sm transition-all flex items-center gap-3 ${
-                      isActive
-                        ? 'bg-teal-50 border border-teal-200 dark:bg-teal-900/30 dark:border-teal-500/30'
-                        : 'hover:bg-slate-50 border border-transparent dark:hover:bg-white/5'
-                    }`}
-                  >
-                    <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${isActive ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
-                      {i + 1}
-                    </span>
-                    <span className={`truncate flex-1 ${isActive ? 'font-bold text-teal-800 dark:text-teal-300' : 'text-slate-600 dark:text-slate-400'}`}>
-                      {epTitle}
-                    </span>
-                    {isHost && !isActive && (
-                      <button
-                        onClick={() => emitControl('set_episode', { index: i })}
-                        className="text-[10px] font-bold uppercase shrink-0 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 px-1"
-                      >
-                        ▶
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-
+        {/* Mobile Floating Button for Chat */}
+        <div className="lg:hidden fixed bottom-6 right-6 z-50">
+           <button 
+             onClick={() => { setActiveDrawerTab('chat'); setIsDrawerOpen(true); }}
+             className="w-14 h-14 bg-teal-600 text-white rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-all"
+           >
+             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
+           </button>
         </div>
       </div>
+
+      <DiscussionDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        title="Room Hub"
+        activeTab={activeDrawerTab}
+        onTabChange={setActiveDrawerTab}
+        tabs={[
+          {
+            id: 'playlist',
+            label: 'Playlist',
+            content: (
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-between">
+                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Queue</h3>
+                   <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded-full">{room.episodes.length} Episodes</span>
+                </div>
+                <ul className="space-y-2">
+                  {room.episodes.map((ep, i) => {
+                    const isActive = currentEpIdx === i;
+                    return (
+                      <li
+                        key={ep._id || i}
+                        className={`p-3.5 rounded-2xl transition-all border flex items-center gap-4 ${
+                          isActive
+                            ? 'bg-teal-50 border-teal-200 dark:bg-teal-900/20 dark:border-teal-500/30'
+                            : 'bg-white dark:bg-white/[0.02] border-slate-100 dark:border-white/5 hover:border-teal-500/30'
+                        }`}
+                      >
+                        <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${isActive ? 'bg-teal-600 text-white' : 'bg-slate-100 dark:bg-white/5 text-slate-400'}`}>
+                          {i + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm truncate font-semibold leading-none mb-1 ${isActive ? 'text-teal-900 dark:text-teal-300' : 'text-slate-700 dark:text-slate-300'}`}>
+                            {ep.title || `Episode ${i + 1}`}
+                          </p>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-tighter">
+                            {ep.seasonId?.seriesId?.title || 'Episode'}
+                          </p>
+                        </div>
+                        {isHost && !isActive && (
+                          <button
+                            onClick={() => emitControl('set_episode', { index: i })}
+                            className="p-2 rounded-lg bg-teal-600 text-white hover:bg-teal-500 transition-colors shadow-sm"
+                            title="Play this next"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )
+          }
+        ]}
+      />
       <ConfirmModal
         isOpen={showReportModal}
         title="Report Message"
-        description="Are you sure you want to flag this chat message as inappropriate? This helps keep the community safe."
+        description="Are you sure you want to flag this chat message as inappropriate?"
         confirmLabel="Confirm Report"
         isDestructive={true}
         isLoading={isReporting}

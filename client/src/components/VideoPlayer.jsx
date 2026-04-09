@@ -37,6 +37,8 @@ export default function VideoPlayer({
   const [subsOn, setSubsOn] = useState(true);
   const [selectedSub, setSelectedSub] = useState(0);
   const [fs, setFs] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimerRef = useRef(null);
   const sessionId = useMemo(() => Math.random().toString(36).slice(2), [episode?._id]);
   const lastSent = useRef(0);
   // Retry logic: auto-retry on network error (e.g. ECONNRESET on first load)
@@ -130,6 +132,28 @@ export default function VideoPlayer({
     };
   }, [episode, reportProgress, reportAnalytics]);
 
+  const hideControls = useCallback(() => {
+    setShowControls(false);
+  }, []);
+
+  const resetControlsTimer = useCallback(() => {
+    setShowControls(true);
+    clearTimeout(controlsTimerRef.current);
+    if (playing) {
+      controlsTimerRef.current = setTimeout(hideControls, 3000);
+    }
+  }, [playing, hideControls]);
+
+  useEffect(() => {
+    if (playing) {
+      resetControlsTimer();
+    } else {
+      setShowControls(true);
+      clearTimeout(controlsTimerRef.current);
+    }
+    return () => clearTimeout(controlsTimerRef.current);
+  }, [playing, resetControlsTimer]);
+
   useEffect(() => {
     return () => {
       const v = videoRef.current;
@@ -146,8 +170,13 @@ export default function VideoPlayer({
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
-    if (v.paused) v.play();
-    else v.pause();
+    if (v.paused) {
+      v.play();
+      resetControlsTimer();
+    } else {
+      v.pause();
+      setShowControls(true);
+    }
   };
 
   const seek = (t) => {
@@ -182,13 +211,18 @@ export default function VideoPlayer({
     current < (introOutro.outroEndSec ?? episode.outroEndSec ?? duration);
 
   return (
-    <div className="relative rounded-xl overflow-hidden bg-black ring-1 ring-slate-300 dark:ring-white/10 shadow-2xl group">
+    <div className={`relative overflow-hidden bg-black transition-all duration-300 ${fs ? 'w-full h-full flex items-center justify-center rounded-none ring-0' : 'rounded-xl ring-1 ring-slate-300 dark:ring-white/10 shadow-2xl group'}`}>
       <video
         ref={videoRef}
         key={src}
         className="w-full aspect-video bg-black cursor-pointer"
         src={src}
-        onClick={togglePlay}
+        onClick={(e) => {
+          e.preventDefault();
+          togglePlay();
+        }}
+        onMouseMove={resetControlsTimer}
+        onTouchStart={resetControlsTimer}
         playsInline
         preload="metadata"
         onEnded={() => {
@@ -226,9 +260,9 @@ export default function VideoPlayer({
           )}
       </video>
 
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className={`absolute inset-0 pointer-events-none bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`} />
 
-      <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-t from-black/90 to-transparent pointer-events-auto">
+      <div className={`absolute bottom-0 left-0 right-0 p-4 space-y-3 transition-opacity duration-300 bg-gradient-to-t from-black/90 to-transparent pointer-events-auto ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
         <div className="flex items-center gap-2 text-xs text-slate-300 flex-wrap">
           {onPrev && (
             <button onClick={onPrev} title="Previous Episode" type="button" className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">

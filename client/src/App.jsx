@@ -85,7 +85,7 @@ function AppContent() {
           </Routes>
         </Suspense>
       </main>
-      {!location.pathname.startsWith('/admin') && <Footer />}
+      {!location.pathname.startsWith('/admin') && !location.pathname.includes('/watch') && <Footer />}
     </div>
 
   );

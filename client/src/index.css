@@ -3,12 +3,7 @@
 @tailwind utilities;
 
 @layer utilities {
-  .comment-connector-v {
-    @apply absolute left-[15px] top-[2.5rem] bottom-[1rem] w-[2px] bg-slate-200 dark:bg-white/10;
-  }
-  .comment-connector-h {
-    @apply absolute left-[15px] top-[1.25rem] w-[12px] h-[2px] bg-slate-200 dark:bg-white/10 rounded-bl-lg;
-  }
+  /* Comment connectors removed in favor of structural border-l styles */
 }
 
 @layer base {
@@ -36,4 +31,29 @@
   .glass {
     @apply bg-white/70 backdrop-blur-md border border-slate-200/80 dark:bg-charcoal-900/80 dark:border-white/5;
   }
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-200 dark:bg-white/10 rounded-full hover:bg-slate-300 dark:hover:bg-white/20 transition-colors;
+  }
+  .animate-fadeUp {
+    animation: fadeUp 0.4s ease-out forwards;
+  }
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

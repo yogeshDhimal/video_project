@@ -8,6 +8,7 @@ import Spinner from '../components/Spinner';
 import { toast } from 'sonner';
 import ConfirmModal from '../components/ConfirmModal';
 import { io } from 'socket.io-client';
+import DiscussionDrawer from '../components/DiscussionDrawer';
 
 function CommentVoteButtons({ item, user, onVote }) {
   const uv = item.userVote || 0;
@@ -36,11 +37,9 @@ function CommentVoteButtons({ item, user, onVote }) {
 function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, onReport, depth = 0, highlightedCommentId }) {
   const [isReplying, setIsReplying] = useState(false);
   const [replyText, setReplyText] = useState('');
-  const [showAll, setShowAll] = useState(false);
+  const [showReplies, setShowReplies] = useState(false);
   const replies = comment.replies || [];
-  const visibleReplies = showAll ? replies : replies.slice(0, 3);
-  const hasMore = replies.length > 3 && !showAll;
-
+  
   const canDelete = user && (user._id === comment.userId || user.role === 'admin');
 
   const handleSubmit = (e) => {
@@ -49,30 +48,45 @@ function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, onReport,
     onSubmitReply(comment._id, replyText);
     setReplyText('');
     setIsReplying(false);
-    setShowAll(true);
+    setShowReplies(true);
   };
 
   const isReply = depth > 0;
   const isHighlighted = highlightedCommentId === comment._id;
 
-  return (
-    <div id={`comment-${comment._id}`} className={`relative ${isReply ? 'mt-4 ml-6 pl-4' : 'mb-8'}`}>
-      {/* Connector lines (FB style) */}
-      {isReply && <div className="comment-connector-h" />}
-      {replies.length > 0 && <div className="comment-connector-v" />}
+  const avatarUrl = comment.user?.avatar ? `/api/assets/avatar/${comment.user._id}` : `https://api.dicebear.com/7.x/initials/svg?seed=${comment.user?.username || 'U'}&backgroundColor=14b8a6&fontFamily=Inter&fontWeight=700`;
 
-      <div className="group/comment relative">
-        <div className="flex items-start gap-3">
-          <div className="flex-1">
-            <div className={`p-3 rounded-2xl ${isReply ? 'bg-slate-50 dark:bg-white/5' : 'bg-white border border-slate-100 dark:bg-charcoal-900/40 dark:border-white/5'} shadow-sm transition-all group-hover/comment:shadow-md ${isHighlighted ? 'ring-2 ring-teal-500 shadow-teal-500/20' : ''}`}>
-              <div className="flex justify-between items-start mb-1">
-                <p className="text-[10px] font-black tracking-widest uppercase text-teal-600 dark:text-teal-400">
+  return (
+    <div id={`comment-${comment._id}`} className={`relative group/thread ${isReply ? 'mt-3' : 'mb-10'}`}>
+      {/* Structural Thread Line - Only for Level 2 (depth 1) and Level 3 (depth 2) */}
+      {(depth >= 1 && depth <= 2) && (
+        <div className="absolute -left-3 sm:-left-6 top-1 bottom-0 w-[2.5px] bg-slate-200 dark:bg-white/10 rounded-full z-0 pointer-events-none" />
+      )}
+
+      <div className="group/comment relative z-10 flex gap-3 sm:gap-4">
+        {/* User Avatar */}
+        <div className="flex-shrink-0 mt-1">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-slate-200 border border-slate-300 dark:border-white/10 shrink-0 shadow-sm relative z-20">
+             <img src={avatarUrl} alt={comment.user?.username} className="w-full h-full object-cover" />
+          </div>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className={`p-3.5 sm:p-4 rounded-2xl ${isReply ? 'bg-slate-50 border border-slate-100 dark:bg-charcoal-900/40 dark:border-white/[0.04]' : 'bg-white border border-slate-200 shadow-sm dark:bg-charcoal-850 dark:border-white/5 border-b-[3px] dark:border-b-white/10'} transition-all duration-300 ${isHighlighted ? 'ring-2 ring-teal-500 shadow-teal-500/20' : ''}`}>
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex items-center gap-3">
+                <p className="text-xs font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                   {comment.user?.username}
                 </p>
+                <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+                  {new Date(comment.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 opacity-0 group-hover/comment:opacity-100 transition-opacity duration-200">
                 {canDelete && (
                   <button 
                     onClick={() => onDelete(comment._id)}
-                    className="opacity-0 group-hover/comment:opacity-100 p-1.5 text-rose-400 hover:text-rose-600 dark:text-rose-500/50 dark:hover:text-rose-400 transition-all rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/10"
+                    className="p-1.5 text-rose-400 hover:text-rose-600 dark:text-rose-500/50 dark:hover:text-rose-400 transition-colors rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/10"
                     title="Delete comment"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
@@ -80,53 +94,67 @@ function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, onReport,
                 )}
                 <button
                   onClick={() => onReport(comment._id)}
-                  className="opacity-0 group-hover/comment:opacity-100 text-[10px] font-black text-slate-400 hover:text-rose-500 transition-all uppercase tracking-tighter"
+                  className="px-2 py-1 text-[10px] font-black text-slate-400 hover:text-rose-500 transition-colors uppercase tracking-widest rounded"
                   title="Report inappropriate content"
                 >
                   Report
                 </button>
               </div>
-              <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed break-words">
-                {comment.body}
-              </p>
             </div>
-
-            <div className="flex items-center gap-4 mt-2 px-1">
-              <CommentVoteButtons item={comment} user={user} onVote={onVote} />
-              {user && (
-                <button 
-                  onClick={() => setIsReplying(!isReplying)}
-                  className={`text-[10px] font-black uppercase tracking-wider transition-colors ${isReplying ? 'text-rose-500' : 'text-slate-400 hover:text-teal-500'}`}
-                >
-                  {isReplying ? 'Cancel' : 'Reply'}
-                </button>
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed break-words">
+              {comment.replyToUser && depth >= 2 && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-teal-50 dark:bg-teal-900/40 text-[10px] font-black text-teal-700 dark:text-teal-400 mr-2 border border-teal-100 dark:border-teal-500/20 shadow-sm">
+                  @{comment.replyToUser.username}
+                </span>
               )}
-              <span className="text-[10px] font-bold text-slate-300 dark:text-slate-700">
-                {new Date(comment.createdAt).toLocaleDateString()}
-              </span>
-            </div>
+              {comment.body}
+            </p>
           </div>
-        </div>
 
-        {isReplying && (
-          <form onSubmit={handleSubmit} className="mt-4 ml-2 flex gap-2 animate-fadeUp">
-            <input
-              autoFocus
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              className="flex-1 px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:ring-2 focus:ring-teal-500/20 outline-none dark:bg-charcoal-850 dark:border-white/10 dark:text-white"
-              placeholder={`Reply to ${comment.user?.username}...`}
-            />
-            <button type="submit" className="px-4 py-2 rounded-xl bg-teal-600 text-white text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-teal-500 transition-colors">
-              Post
+          <div className="flex items-center gap-5 mt-1.5 px-1 pb-1">
+            <CommentVoteButtons item={comment} user={user} onVote={onVote} />
+            {user && (
+              <button 
+                onClick={() => setIsReplying(!isReplying)}
+                className={`text-[10px] font-black uppercase tracking-widest transition-colors pt-2 ${isReplying ? 'text-rose-500' : 'text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400'}`}
+              >
+                {isReplying ? 'Cancel' : 'Reply'}
+              </button>
+            )}
+          </div>
+
+          {isReplying && (
+            <form onSubmit={handleSubmit} className="mt-3 flex gap-2 animate-fadeUp">
+              <input
+                autoFocus
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm focus:ring-2 focus:ring-teal-500/20 outline-none dark:bg-charcoal-850 dark:border-white/10 dark:text-white placeholder:text-slate-400"
+                placeholder={`Reply to ${comment.user?.username}...`}
+              />
+              <button type="submit" className="px-5 py-2.5 rounded-xl bg-teal-600 text-white text-[11px] font-black uppercase tracking-widest shadow-md hover:bg-teal-500 transition-colors">
+                Post
+              </button>
+            </form>
+          )}
+
+          {/* Flat List of Replies Toggle */}
+          {!isReply && replies.length > 0 && (
+            <button 
+              onClick={() => setShowReplies(!showReplies)}
+              className="mt-2 text-[10px] font-black text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-400 uppercase tracking-widest flex items-center gap-2 transition-colors py-1"
+            >
+              <div className="w-8 h-[1px] bg-slate-300 dark:bg-slate-700" />
+              {showReplies ? 'Hide replies' : `View replies (${replies.length})`}
             </button>
-          </form>
-        )}
+          )}
+        </div>
       </div>
 
-      {visibleReplies.length > 0 && (
-        <div className="space-y-2">
-          {visibleReplies.map((r) => (
+      {/* RECURSIVE REPLIES - Moved outside parent content to ensure true flattening at depth >= 2 */}
+      {((!isReply && showReplies) || isReply) && replies.length > 0 && (
+        <div className={`mt-4 space-y-4 ${depth <= 1 ? 'ml-6 sm:ml-12' : 'ml-0'}`}>
+          {replies.map((r) => (
             <CommentItem 
               key={r._id} 
               comment={r} 
@@ -139,16 +167,6 @@ function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, onReport,
               highlightedCommentId={highlightedCommentId}
             />
           ))}
-          
-          {hasMore && (
-            <button 
-              onClick={() => setShowAll(true)}
-              className="ml-10 mt-2 text-[10px] font-black text-teal-600 hover:text-teal-500 dark:text-teal-400 uppercase tracking-widest flex items-center gap-1.5"
-            >
-              <span className="w-4 h-px bg-current opacity-30" />
-              View {replies.length - 3} more replies
-            </button>
-          )}
         </div>
       )}
     </div>
@@ -182,6 +200,9 @@ export default function Watch() {
   const [searchParams] = useSearchParams();
   const highlightedCommentId = searchParams.get('commentId');
   const startTime = parseFloat(searchParams.get('t') || 0);
+
+  const [isDrawerOpen, setIsDrawerOpen] = useState(!!highlightedCommentId);
+  const [activeDrawerTab, setActiveDrawerTab] = useState('comments');
 
   useEffect(() => {
     if (comments.length > 0 && highlightedCommentId) {
@@ -307,15 +328,25 @@ export default function Watch() {
       if (!body) setComment('');
       
       const updateReplies = (list) => {
-        return list.map(c => {
-          if (c._id === parentId) {
-            return { ...c, replies: [...(c.replies || []), cData.comment] };
-          }
-          if (c.replies) {
-            return { ...c, replies: updateReplies(c.replies) };
-          }
-          return c;
-        });
+        let replyToUser = null;
+        const findAndAddReply = (items) => {
+          return items.map(item => {
+            if (item._id === parentId) {
+              replyToUser = { username: item.user?.username };
+              return { 
+                ...item, 
+                replies: [...(item.replies || []), { ...cData.comment, replyToUser, replies: [] }] 
+              };
+            }
+            if (item.replies && item.replies.length > 0) {
+              return { ...item, replies: findAndAddReply(item.replies) };
+            }
+            return item;
+          });
+        };
+
+        if (!parentId) return [{ ...cData.comment, replies: [] }, ...list];
+        return findAndAddReply(list);
       };
 
       if (cData.comment) {
@@ -489,23 +520,22 @@ export default function Watch() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-[1500px] mx-auto px-4 py-3 sm:py-8 h-[calc(100dvh-64px)] sm:h-auto overflow-hidden sm:overflow-visible flex flex-col">
+      {/* Breadcrumbs */}
       <div className="mb-4 text-sm text-slate-600 dark:text-slate-400">
-        <Link to="/" className="hover:text-teal-700 dark:hover:text-white">
-          Home
-        </Link>
+        <Link to="/" className="hover:text-teal-700 dark:hover:text-white">Home</Link>
         <span className="mx-2">/</span>
-        <Link to={`/series/${series?._id}`} className="hover:text-teal-700 dark:hover:text-white">
-          {series?.title}
-        </Link>
+        <Link to={`/series/${series?._id}`} className="hover:text-teal-700 dark:hover:text-white">{series?.title}</Link>
         <span className="mx-2">/</span>
-        <span className="text-slate-800 dark:text-slate-200">
-          S{season?.number}E{episode.number}
-        </span>
+        <span className="text-slate-800 dark:text-slate-200">S{season?.number}E{episode.number}</span>
       </div>
-      <h1 className="font-display text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-6">
-        {episode.title}
-      </h1>
+
+      <div className="flex flex-col lg:grid lg:grid-cols-[1fr_380px] gap-8">
+        {/* Main Column */}
+        <div className="min-w-0">
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-6">
+            {episode.title}
+          </h1>
       
       <VideoPlayer
         episode={episode}
@@ -519,135 +549,219 @@ export default function Watch() {
         }}
       />
 
-      <div className="mt-6 flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-6 mb-2">
-        
-        {/* Like & Dislike Actions */}
-        <div className="flex flex-col sm:flex-row items-center gap-6">
-          {user && (
-            <RatingWidget
-              episodeId={episodeId}
-              initialRating={myRating}
-              onRatingUpdate={(avg, total) => {
-                setData((prev) => ({
-                  ...prev,
-                  episode: { ...prev.episode, ratingAvg: avg, totalRatings: total },
-                }));
-              }}
-            />
-          )}
+          <div className="mt-6 border-b border-slate-200 dark:border-white/10 pb-6 mb-2">
+            {/* Optimized Action Bar - No horizontal scroll on mobile */}
+            <div className="flex flex-wrap items-center gap-3 sm:gap-6">
+              {user && (
+                <div className="w-full sm:w-auto shrink-0">
+                  <RatingWidget
+                    episodeId={episodeId}
+                    initialRating={myRating}
+                    onRatingUpdate={(avg, total) => {
+                      setData((prev) => ({
+                        ...prev,
+                        episode: { ...prev.episode, ratingAvg: avg, totalRatings: total },
+                      }));
+                    }}
+                  />
+                </div>
+              )}
 
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/5 rounded-full p-1 shadow-inner shrink-0">
-            <button
-              onClick={() => handleVote(1)}
-              aria-label="Like"
-              title={!user ? "Log in to like" : "Like"}
-              className={`group flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200 active:scale-95 ${
-                userVote === 1 
-                  ? 'bg-teal-600 text-white shadow-md ring-1 ring-teal-500' 
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-teal-600 dark:hover:text-teal-400'
-              } ${!user && 'opacity-70 cursor-not-allowed'}`}
-              disabled={!user}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={userVote === 1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${userVote !== 1 && 'group-hover:-translate-y-0.5 transition-transform'}`}><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></svg>
-              <span className="text-sm">{likes > 0 ? likes : 'Like'}</span>
-            </button>
-            
-            <div className="w-px h-5 bg-slate-300 dark:bg-white/10" />
-            
-            <button
-              onClick={() => handleVote(-1)}
-              aria-label="Dislike"
-              title={!user ? "Log in to dislike" : "Dislike"}
-              className={`group flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200 active:scale-95 ${
-                userVote === -1 
-                  ? 'bg-rose-600 text-white shadow-md ring-1 ring-rose-500' 
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-rose-600 dark:hover:text-rose-400'
-              } ${!user && 'opacity-70 cursor-not-allowed'}`}
-              disabled={!user}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={userVote === -1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${userVote !== -1 && 'group-hover:translate-y-0.5 transition-transform'}`}><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"/></svg>
-              <span className="text-sm">{dislikes > 0 ? dislikes : 'Dislike'}</span>
-            </button>
+              <div className="flex items-center gap-4 w-full sm:w-auto">
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/5 rounded-full p-1 shadow-inner shrink-0">
+                  <button
+                    onClick={() => handleVote(1)}
+                    aria-label="Like"
+                    title={!user ? "Log in to like" : "Like"}
+                    className={`group flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                      userVote === 1 
+                        ? 'bg-teal-600 text-white shadow-md ring-1 ring-teal-500' 
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-teal-600 dark:hover:text-teal-400'
+                    } ${!user && 'opacity-70 cursor-not-allowed'}`}
+                    disabled={!user}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={userVote === 1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${userVote !== 1 && 'group-hover:-translate-y-0.5 transition-transform'}`}><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></svg>
+                    <span className="text-sm font-bold">{likes > 0 ? (likes >= 1000 ? (likes/1000).toFixed(1) + 'K' : likes) : 'Like'}</span>
+                  </button>
+                  <div className="w-px h-5 bg-slate-300 dark:bg-white/10" />
+                  <button
+                    onClick={() => handleVote(-1)}
+                    aria-label="Dislike"
+                    title={!user ? "Log in to dislike" : "Dislike"}
+                    className={`group flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                      userVote === -1 
+                        ? 'bg-rose-600 text-white shadow-md ring-1 ring-rose-500' 
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-rose-600 dark:hover:text-rose-400'
+                    } ${!user && 'opacity-70 cursor-not-allowed'}`}
+                    disabled={!user}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={userVote === -1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`${userVote !== -1 && 'group-hover:translate-y-0.5 transition-transform'}`}><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79-1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"/></svg>
+                    <span className="text-sm font-bold">{dislikes > 0 ? (dislikes >= 1000 ? (dislikes/1000).toFixed(1) + 'K' : dislikes) : 'Dislike'}</span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => { setActiveDrawerTab('comments'); setIsDrawerOpen(true); }}
+                  className="flex items-center gap-2.5 px-6 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 font-bold text-sm rounded-full hover:bg-slate-50 dark:hover:bg-white/10 transition-all shadow-sm active:scale-95 shrink-0 whitespace-nowrap"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
+                  Comments ({comments.length})
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div className="mt-8 grid md:grid-cols-2 gap-8">
-        <div>
-          <h2 className="font-semibold text-slate-900 dark:text-white mb-3">Comments</h2>
-          {user && (
-            <form onSubmit={(e) => { e.preventDefault(); submitComment(); }} className="mb-8 flex gap-3">
-              <input
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                className="flex-1 px-5 py-3 rounded-2xl bg-white border border-slate-200 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:ring-2 focus:ring-teal-500/20 outline-none dark:bg-charcoal-900/60 dark:border-white/10 dark:text-slate-100"
-                placeholder="Share your thoughts on this episode…"
-              />
-              <button type="submit" className="px-6 py-3 rounded-2xl bg-teal-600 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-teal-500/20 hover:bg-teal-500 transition-all">
-                Post
-              </button>
-            </form>
-          )}
-          <div className="space-y-4">
-            {comments.map((c) => (
-              <CommentItem 
-                key={c._id} 
-                comment={c} 
-                user={user} 
-                onVote={handleCommentVote} 
-                onSubmitReply={submitComment} 
-                onDelete={handleDeleteComment}
-                onReport={handleReportComment}
-                highlightedCommentId={highlightedCommentId}
-              />
-            ))}
-            {!comments.length && (
-              <div className="py-10 text-center border-2 border-dashed border-slate-100 dark:border-white/5 rounded-3xl">
-                <p className="text-slate-400 dark:text-slate-600 text-sm italic">Be the first to join the discussion.</p>
+          {/* Persistent Live Chat (Mobile Only) - Dynamic height to fill screen */}
+          <div className="flex-1 min-h-0 lg:hidden mt-4 bg-white dark:bg-charcoal-900/60 rounded-3xl border border-slate-200 dark:border-white/5 overflow-hidden flex flex-col shadow-sm mb-4">
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50 dark:bg-white/5">
+               <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-pulse" />
+                  <h2 className="font-black uppercase tracking-widest text-[9px] text-slate-500 dark:text-slate-400">Live Chat</h2>
+               </div>
+               <span className="text-[9px] font-bold text-teal-600 dark:text-teal-400 border border-teal-500/20 px-2 py-0.5 rounded-full uppercase">Active</span>
+            </div>
+            
+            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar flex flex-col-reverse gap-4 bg-slate-50/30 dark:bg-transparent">
+               <div className="space-y-4">
+                  {live.map((m, i) => (
+                    <div key={`${m._id}-${i}`} className="animate-fadeIn group/live relative flex gap-3 items-start">
+                      <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-teal-700 dark:text-teal-400 font-bold text-[10px] shrink-0">
+                        {m.user?.username?.[0] || 'U'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-bold text-slate-800 dark:text-slate-300 text-[11px] mr-2">{m.user?.username}</span>
+                        <span className="text-xs text-slate-600 dark:text-slate-400 break-words leading-relaxed">{m.body}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {!live.length && <p className="text-slate-400 italic text-center text-xs py-10 uppercase tracking-widest opacity-50 font-bold">Waiting for messages...</p>}
+               </div>
+            </div>
+
+            {user ? (
+              <form onSubmit={submitLiveChat} className="p-3 border-t border-slate-100 dark:border-white/5 bg-white dark:bg-charcoal-850 flex gap-2">
+                <input
+                  value={liveMsg}
+                  onChange={(e) => setLiveMsg(e.target.value)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-white/10 dark:bg-charcoal-900 dark:text-slate-100"
+                  placeholder="Chat live..."
+                />
+                <button type="submit" className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md transition-colors shrink-0">
+                  Send
+                </button>
+              </form>
+            ) : (
+              <div className="p-3 text-center text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-white/5 border-t border-slate-100 dark:border-white/5">
+                Log in to chat
               </div>
             )}
           </div>
+
         </div>
-        <div className="flex flex-col h-full">
-          <h2 className="font-semibold text-slate-900 dark:text-white mb-3">Live feed (Socket.IO)</h2>
-          <div className="flex-1 min-h-[12rem] max-h-64 overflow-y-auto rounded-xl bg-slate-100 border border-slate-200 p-4 text-sm flex flex-col-reverse dark:bg-charcoal-900 dark:border-white/10 mb-4 shadow-inner">
-            <div className="space-y-3">
-              {live.map((m, i) => (
-                <div key={`${m._id}-${i}`} className="animate-fadeIn group/live relative">
-                  <span className="font-semibold text-teal-700 dark:text-teal-400 mr-2">{m.user?.username}</span>
-                  <span className="text-slate-800 dark:text-slate-200 break-words">{m.body}</span>
-                  {user && m._id && (
-                    <button
-                      onClick={() => handleReportChatMessage(m._id)}
-                      className="absolute right-0 top-0 opacity-0 group-hover/live:opacity-100 text-[9px] font-black text-slate-400 hover:text-rose-500 transition-all uppercase"
-                    >
-                      🚩 Report
-                    </button>
-                  )}
+
+        {/* Sidebar Column (Hides when comments hub is open for wide mode) */}
+        {!isDrawerOpen && (
+          <div className="hidden lg:flex flex-col gap-4 animate-fadeIn">
+            <div className="rounded-2xl border border-slate-200 bg-white dark:bg-charcoal-900/60 dark:border-white/10 overflow-hidden flex flex-col h-[600px] shadow-sm sticky top-24">
+              <div className="px-5 py-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50 dark:bg-white/5">
+                 <h2 className="font-black uppercase tracking-widest text-[11px] text-slate-500 dark:text-slate-400">Live Feed</h2>
+                 <div className="flex items-center gap-1.5 px-2 py-0.5 bg-teal-100 dark:bg-teal-900/40 text-[9px] font-bold text-teal-700 dark:text-teal-400 rounded-lg">
+                    <span className="w-1 h-1 bg-teal-500 rounded-full animate-pulse" />
+                    Live
+                 </div>
+              </div>
+              
+              <div className="flex-1 p-5 overflow-y-auto custom-scrollbar flex flex-col-reverse gap-4">
+                 <div className="space-y-4">
+                    {live.map((m, i) => (
+                      <div key={`${m._id}-${i}`} className="animate-fadeIn group/live relative flex gap-3">
+                        <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-teal-900/20 flex-shrink-0 flex items-center justify-center text-[10px] font-bold">
+                          {m.user?.username?.[0] || 'U'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-bold text-slate-800 dark:text-slate-300 text-xs mr-2">{m.user?.username}</span>
+                          <span className="text-xs text-slate-600 dark:text-slate-400 break-words">{m.body}</span>
+                        </div>
+                        {user && m._id && (
+                          <button onClick={() => handleReportChatMessage(m._id)} className="opacity-0 group-hover/live:opacity-100 text-[9px] text-slate-400 hover:text-rose-500 transition-all uppercase font-bold self-start mt-0.5">🚩</button>
+                        )}
+                      </div>
+                    ))}
+                    {!live.length && <p className="text-slate-400 italic text-center text-xs py-10">Waiting for live messages...</p>}
+                 </div>
+              </div>
+
+              {user ? (
+                <form onSubmit={submitLiveChat} className="p-4 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 flex gap-2">
+                  <input
+                    value={liveMsg}
+                    onChange={(e) => setLiveMsg(e.target.value)}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 dark:border-white/10 dark:bg-charcoal-850 dark:text-slate-100"
+                    placeholder="Chat live..."
+                  />
+                  <button type="submit" className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md transition-colors shrink-0">
+                    Send
+                  </button>
+                </form>
+              ) : (
+                <div className="p-4 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-white/5 border-t border-slate-100 dark:border-white/5">
+                  Log in to chat
                 </div>
-              ))}
-              {!live.length && <p className="text-slate-500 italic">No live messages yet. Be the first!</p>}
+              )}
             </div>
           </div>
-          {user ? (
-            <form onSubmit={submitLiveChat} className="flex gap-2 shrink-0">
-              <input
-                value={liveMsg}
-                onChange={(e) => setLiveMsg(e.target.value)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 dark:border-white/10 dark:bg-charcoal-850 dark:text-slate-100 dark:focus:ring-teal-400/30"
-                placeholder="Say something to the room…"
-              />
-              <button type="submit" className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 transition-colors text-white text-sm font-semibold rounded-xl shadow-md">
-                Send
-              </button>
-            </form>
-          ) : (
-            <div className="text-center text-sm text-slate-500 dark:text-slate-400 mt-2 bg-slate-50 dark:bg-white/5 py-2 rounded-lg">
-              Log in to chat live
-            </div>
-          )}
-        </div>
+        )}
       </div>
+
+      <DiscussionDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        activeTab={activeDrawerTab}
+        onTabChange={setActiveDrawerTab}
+        title="Episode Discussion"
+        tabs={[
+          {
+            id: 'comments',
+            label: 'Comments',
+            content: (
+              <div className="p-6">
+                {user && (
+                  <form onSubmit={(e) => { e.preventDefault(); submitComment(); }} className="mb-8 flex gap-3">
+                    <input
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      className="flex-1 px-5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:ring-2 focus:ring-teal-500/20 outline-none dark:bg-charcoal-900/60 dark:border-white/10 dark:text-slate-100"
+                      placeholder="Share your thoughts..."
+                    />
+                    <button type="submit" className="px-5 py-3 rounded-2xl bg-teal-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-500/20 hover:bg-teal-500 transition-all">
+                      Post
+                    </button>
+                  </form>
+                )}
+                <div className="space-y-4">
+                  {comments.map((c) => (
+                    <CommentItem 
+                      key={c._id} 
+                      comment={c} 
+                      user={user} 
+                      onVote={handleCommentVote} 
+                      onSubmitReply={submitComment} 
+                      onDelete={handleDeleteComment}
+                      onReport={handleReportComment}
+                      highlightedCommentId={highlightedCommentId}
+                    />
+                  ))}
+                  {!comments.length && (
+                    <div className="py-10 text-center border-2 border-dashed border-slate-100 dark:border-white/5 rounded-3xl">
+                      <p className="text-slate-400 dark:text-slate-600 text-sm italic">Be the first to join the discussion.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          }
+        ]}
+      />
       <ConfirmModal
         isOpen={showReportModal}
         title="Report Content"
