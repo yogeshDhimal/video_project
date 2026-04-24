@@ -46,7 +46,7 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
     const wt = Math.min(1, (h.progressSeconds || 0) / Math.max(1, h.durationSeconds || ep.durationSeconds || 1));
     addGenres(se.seriesId.toString(), 0.2 + wt * 0.8);
   });
-  
+
   liked.forEach((l) => {
     const ep = episodes.find((e) => e._id.toString() === l.episodeId.toString());
     if (!ep) return;
@@ -54,12 +54,11 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
     if (!se) return;
     addGenres(se.seriesId.toString(), 1);
   });
-  
+
   (req.user.preferredGenres || []).forEach((g) => {
     genreWeights[g] = (genreWeights[g] || 0) + 0.5;
   });
 
-  // Exclude completed episodes (>= 95% watched)
   const completedSet = new Set(
     history
       .filter((h) => {
@@ -77,24 +76,20 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
     .lean();
 
   const candidateIds = candidates.map((c) => c._id);
-  
-  // Predict using User-to-User Pearson Correlation
+
   const cfRecs = await getCollaborativeRecommendations(req.user._id, candidateIds, 100);
   const cfScores = Object.fromEntries(cfRecs.map(r => [r.episodeId.toString(), r.predictedRating]));
 
-  // Predict using Latent Matrix Factorization (SVD via SGD)
   const matrixData = await buildRatingMatrix();
   const svdRecs = getSVDRecommendations(req.user._id, candidateIds, matrixData);
   const svdScores = Object.fromEntries(svdRecs.map(r => [r.episodeId, r]));
 
-  // Aggregate comment counts for engagement score
   const commentCountsRaw = await Comment.aggregate([
     { $match: { episodeId: { $in: candidateIds } } },
     { $group: { _id: '$episodeId', count: { $sum: 1 } } }
   ]);
   const commentCounts = Object.fromEntries(commentCountsRaw.map(c => [c._id.toString(), c.count]));
 
-  // Fixed: renamed to candidateSeasonIds to avoid variable shadowing (issue 1.1)
   const candidateSeasonIds = [...new Set(candidates.map((e) => e.seasonId.toString()))];
   const candidateSeasons = await Season.find({ _id: { $in: candidateSeasonIds.map((id) => new mongoose.Types.ObjectId(id)) } }).lean();
   const s2map = Object.fromEntries(candidateSeasons.map((s) => [s._id.toString(), s]));
@@ -105,10 +100,9 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
   }).lean();
   const candidateSeriesMap = Object.fromEntries(candidateSeries.map((s) => [s._id.toString(), s]));
 
-  // Find max values for normalization
   const maxLikes = Math.max(1, ...candidates.map((c) => c.likes || 0));
   const maxViews = Math.max(1, ...candidates.map((c) => c.views || 0));
-  
+
   const engagements = candidates.map((c) => (c.likes || 0) + (commentCounts[c._id.toString()] || 0) * 2);
   const maxEngagement = Math.max(1, ...engagements);
 
@@ -120,42 +114,35 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
   const scored = candidates.map((ep) => {
     const se = s2map[ep.seasonId.toString()];
     const ser = se ? candidateSeriesMap[se.seriesId.toString()] : null;
-    
-    // 1. genreMatch
+
     let genreMatch = 0;
     if (ser && ser.genres) {
       genreMatch = ser.genres.filter((g) => userPreferredGenres.has(g)).length;
     }
     const normalizedGenreMatch = norm(genreMatch, maxPossibleGenreMatch);
 
-    // 2. watchCompletion
     let watchCompletion = 0;
     const histEntry = history.find((h) => h.episodeId.toString() === ep._id.toString());
     if (histEntry) {
        watchCompletion = Math.min(1, (histEntry.progressSeconds || 0) / Math.max(1, histEntry.durationSeconds || ep.durationSeconds || 1));
     }
 
-    // 3. normalizedLikes & normalizedViews
     const normalizedLikes = norm(ep.likes || 0, maxLikes);
     const normalizedViews = norm(ep.views || 0, maxViews);
 
-    // 4. recencyBoost (1 / (daysSinceUpload + 1))
     const daysSinceUpload = Math.max(0, (now - new Date(ep.createdAt).getTime()) / (1000 * 60 * 60 * 24));
     const recencyBoost = 1 / (daysSinceUpload + 1);
 
-    // 5. engagementScore
     const comments = commentCounts[ep._id.toString()] || 0;
     const rawEngagement = (ep.likes || 0) + comments * 2;
     const normalizedEngagement = norm(rawEngagement, maxEngagement);
 
-    // 6. Collaborative Pearson Core
     let pearsonBoost = 0;
     const pred = cfScores[ep._id.toString()];
     if (pred && pred > 3.0) {
       pearsonBoost = norm(pred - 3.0, 2.0);
     }
 
-    // 7. SVD Matrix Factorization
     let svdBoost = 0;
     const svdData = svdScores[ep._id.toString()];
     if (svdData && svdData.predictedRating > 3.0) {
@@ -170,15 +157,14 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
       recencyBoost,
       normalizedEngagement,
     });
-    
-    // Hard mathematically proven predictions get massive boosts over heuristics
+
     score += (pearsonBoost * 5) + (svdBoost * 7);
 
-    return { 
-      episode: ep, 
-      series: ser, 
-      season: se, 
-      score, 
+    return {
+      episode: ep,
+      series: ser,
+      season: se,
+      score,
       pearsonPredicted: pred || null,
       mathProof: svdData ? {
         uVector: svdData.uVector,
@@ -188,16 +174,15 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
     };
   });
 
-  // Diversity Engine: Avoid consecutive same-genre repetition
   const visible = scored.filter((r) => r.series && r.series.genres && r.series.genres.length > 0);
   visible.sort((a, b) => b.score - a.score);
-  
+
   const diversityItems = [];
   const recentGenres = [];
-  
+
   for (const item of visible) {
     if (diversityItems.length >= 20) break;
-    
+
     const primaryGenre = item.series.genres[0];
     const consecutiveCount = 2;
     let isRepeating = true;
@@ -209,7 +194,7 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
     }
 
     if (isRepeating) continue;
-    
+
     diversityItems.push(item);
     recentGenres.push(primaryGenre);
   }

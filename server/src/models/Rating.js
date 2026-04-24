@@ -9,7 +9,6 @@ const ratingSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Ensure a user can only rate an episode once
 ratingSchema.index({ userId: 1, episodeId: 1 }, { unique: true });
 
 module.exports = mongoose.model('Rating', ratingSchema);

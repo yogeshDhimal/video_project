@@ -12,18 +12,15 @@ const { trendingScoreRaw } = require('../algorithms');
 
 const router = express.Router();
 
-/** Whitelist of fields allowed in episode PATCH to prevent mass assignment (issue 1.4) */
 const EPISODE_ALLOWED_FIELDS = [
   'title', 'description', 'durationSeconds', 'thumbnailPath',
   'qualities', 'subtitles', 'introStartSec', 'introEndSec',
   'outroStartSec', 'outroEndSec',
 ];
 
-/** Simple in-memory view deduplication by IP (issue 2.3) */
 const recentViewKeys = new Map();
-const VIEW_DEDUP_MS = 60_000; // 1 minute
+const VIEW_DEDUP_MS = 60_000;
 
-// Cleanup stale entries every 5 minutes
 setInterval(() => {
   const now = Date.now();
   for (const [key, ts] of recentViewKeys) {
@@ -109,7 +106,6 @@ router.post(
       await episode.save();
       const series = await Series.findById(season.seriesId);
 
-      // Fixed: use insertMany instead of Promise.all(map(create)) (issue 2.5)
       if (series && series.catalogStatus !== 'draft') {
         const users = await User.find({ preferredGenres: { $in: series.genres } }).select('_id');
         if (users.length > 0) {
@@ -131,7 +127,6 @@ router.post(
   })
 );
 
-// Fixed: whitelist allowed fields to prevent mass assignment (issue 1.4)
 router.patch('/:id', authenticate, requireRole('admin'), asyncHandler(async (req, res) => {
   const updates = {};
   for (const key of EPISODE_ALLOWED_FIELDS) {
@@ -150,12 +145,10 @@ router.delete('/:id', authenticate, requireRole('admin'), asyncHandler(async (re
   res.json({ message: 'Deleted' });
 }));
 
-// Fixed: view deduplication by IP to prevent inflation (issue 2.3)
 router.post('/:id/view', optionalAuth, asyncHandler(async (req, res) => {
   const ep = await Episode.findById(req.params.id);
   if (!ep) return res.status(404).json({ message: 'Not found' });
 
-  // Deduplicate: 1 view per IP per episode per minute
   const dedupKey = `${req.ip}:${req.params.id}`;
   const now = Date.now();
   if (recentViewKeys.has(dedupKey) && now - recentViewKeys.get(dedupKey) < VIEW_DEDUP_MS) {
@@ -174,7 +167,6 @@ router.post('/:id/view', optionalAuth, asyncHandler(async (req, res) => {
   res.json({ views: ep.views, trendingScore: ep.trendingScore });
 }));
 
-// ── Rating Logic ──
 router.get('/:id/my-rating', authenticate, asyncHandler(async (req, res) => {
   const Rating = require('../models/Rating');
   const rating = await Rating.findOne({ userId: req.user._id, episodeId: req.params.id });
@@ -212,7 +204,7 @@ router.delete('/:id/rate', authenticate, asyncHandler(async (req, res) => {
   const { invalidateRatingMatrixCache } = require('../algorithms');
 
   await Rating.findOneAndDelete({ userId: req.user._id, episodeId: req.params.id });
-  
+
   invalidateRatingMatrixCache();
   await updateRatings(req.params.id);
   const ep = await Episode.findById(req.params.id);

@@ -11,12 +11,10 @@ const { findSimilarSeries } = require('../algorithms');
 
 const router = express.Router();
 
-/** Escape special regex characters to prevent ReDoS (issue 2.1) */
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Whitelist of fields allowed in series PATCH to prevent mass assignment (issue 1.5) */
 const SERIES_ALLOWED_FIELDS = [
   'title', 'description', 'genres', 'tags', 'releaseYear', 'posterPath',
   'videoFile', 'thumbnailPath', 'subtitleFile', 'type', 'status', 'catalogStatus',
@@ -41,7 +39,6 @@ router.get(
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 20;
     const filter = {};
-    // Fixed: escape user input before using in RegExp (issue 2.1)
     if (req.query.genre) filter.genres = { $regex: new RegExp(`^${escapeRegex(req.query.genre)}$`, 'i') };
     if (req.query.year) filter.releaseYear = Number(req.query.year);
     if (req.query.type) filter.type = req.query.type;
@@ -65,7 +62,6 @@ router.get(
   })
 );
 
-// ── TF-IDF Cosine Similarity: Find similar series ──
 router.get('/:id/similar', optionalAuth, asyncHandler(async (req, res) => {
   const target = await Series.findById(req.params.id).lean();
   if (!target) return res.status(404).json({ message: 'Not found' });
@@ -132,7 +128,6 @@ router.patch(
     const doc = await Series.findById(req.params.id);
     if (!doc) return res.status(404).json({ message: 'Not found' });
 
-    // Fixed: whitelist allowed fields to prevent mass assignment (issue 1.5)
     const updates = {};
     for (const key of SERIES_ALLOWED_FIELDS) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];

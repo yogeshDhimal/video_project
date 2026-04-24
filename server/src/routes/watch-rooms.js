@@ -8,7 +8,6 @@ const { asyncHandler } = require('../middleware/asyncHandler');
 
 const router = express.Router();
 
-// In-memory set of authorized users per private room: { roomId: Set<userId> }
 const authorizedUsers = {};
 
 function authorizeUser(roomId, userId) {
@@ -20,7 +19,6 @@ function isUserAuthorized(roomId, userId) {
   return authorizedUsers[roomId]?.has(userId.toString()) || false;
 }
 
-// Fixed: added limit() to prevent unbounded result sets (issue 2.8)
 router.get('/', optionalAuth, asyncHandler(async (req, res) => {
   const active = await WatchRoom.find({ status: 'active' })
     .populate('hostId', 'username avatar')
@@ -67,13 +65,11 @@ router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
     .lean();
   if (!room) return res.status(404).json({ message: 'Room not found' });
 
-  // For private rooms, check authorization (host is always authorized)
   const userId = req.user?._id?.toString();
   const hostId = room.hostId?._id?.toString() || room.hostId?.toString();
   const isHost = userId && userId === hostId;
 
   if (room.visibility === 'private' && !isHost && !isUserAuthorized(req.params.id, userId || '')) {
-    // Return limited info — enough to show the PIN modal
     return res.json({
       room: {
         _id: room._id,
@@ -90,7 +86,6 @@ router.get('/:id', optionalAuth, asyncHandler(async (req, res) => {
   res.json({ room });
 }));
 
-// PIN verification endpoint for private rooms
 router.post('/:id/join', authenticate, asyncHandler(async (req, res) => {
   const room = await WatchRoom.findById(req.params.id).select('+pin');
   if (!room) return res.status(404).json({ message: 'Room not found' });
@@ -99,7 +94,6 @@ router.post('/:id/join', authenticate, asyncHandler(async (req, res) => {
     return res.json({ authorized: true });
   }
 
-  // Host is always authorized
   if (room.hostId.toString() === req.user._id.toString()) {
     authorizeUser(room._id.toString(), req.user._id);
     return res.json({ authorized: true });
@@ -111,7 +105,6 @@ router.post('/:id/join', authenticate, asyncHandler(async (req, res) => {
   const match = await bcrypt.compare(pin, room.pin);
   if (!match) return res.status(401).json({ message: 'Incorrect PIN' });
 
-  // Track authorization in memory
   authorizeUser(room._id.toString(), req.user._id);
   res.json({ authorized: true });
 }));
@@ -137,7 +130,6 @@ router.post(
 
     const { title, scheduledStartTime, visibility, pin } = req.body;
 
-    // Validate: private rooms must have a PIN
     if (visibility === 'private' && !pin) {
       return res.status(400).json({ message: 'Private rooms require a 4-digit PIN' });
     }
@@ -165,7 +157,6 @@ router.post(
       playbackUpdatedAt,
     });
 
-    // Auto-authorize the host for their own private room
     if (visibility === 'private') {
       authorizeUser(room._id.toString(), req.user._id);
     }
@@ -180,13 +171,11 @@ router.delete('/:id', authenticate, asyncHandler(async (req, res) => {
   if (room.hostId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
     return res.status(403).json({ message: 'Forbidden' });
   }
-  // Clean up authorization tracking
   delete authorizedUsers[room._id.toString()];
   await WatchRoom.deleteOne({ _id: room._id });
   res.json({ message: 'Deleted' });
 }));
 
-// Export authorizedUsers for socket authorization
 router.authorizedUsers = authorizedUsers;
 router.isUserAuthorized = isUserAuthorized;
 router.authorizeUser = authorizeUser;

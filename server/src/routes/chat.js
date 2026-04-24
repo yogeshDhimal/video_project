@@ -4,7 +4,6 @@ const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Report a chat message
 router.post('/:msgId/report', authenticate, async (req, res) => {
   try {
     const msg = await ChatMessage.findById(req.params.msgId);

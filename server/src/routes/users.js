@@ -49,17 +49,14 @@ router.post(
 
     const { currentPassword, newPassword } = req.body;
 
-    // Fetch user with password field
     const user = await User.findById(req.user._id).select('+password');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Verify current password
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
       return res.status(400).json({ message: 'Current password is incorrect' });
     }
 
-    // Update password (pre-save hook will hash it)
     user.password = newPassword;
     await user.save();
 

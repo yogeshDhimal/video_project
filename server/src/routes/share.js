@@ -6,7 +6,6 @@ const env = require('../config/env');
 
 const router = express.Router();
 
-// Fixed: escape HTML entities in embed output to prevent XSS (issue 6.5)
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;')

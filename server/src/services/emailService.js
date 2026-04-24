@@ -21,7 +21,6 @@ async function sendVerificationEmail(to, token) {
   const t = getTransporter();
   const url = `${env.clientUrl}/verify-email?token=${token}`;
   if (!t) {
-    console.info('[email stub] verify:', to, url);
     return;
   }
   await t.sendMail({
@@ -37,7 +36,6 @@ async function sendPasswordResetEmail(to, token) {
   const t = getTransporter();
   const url = `${env.clientUrl}/reset-password?token=${token}`;
   if (!t) {
-    console.info('[email stub] reset:', to, url);
     return;
   }
   await t.sendMail({

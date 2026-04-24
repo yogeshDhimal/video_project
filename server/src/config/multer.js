@@ -9,7 +9,6 @@ function ensureDirs() {
   });
 }
 
-/** Preserves the original filename (sanitized). If the file already exists, appends _1, _2, … */
 function uniqueSafeName(original, destDir) {
   ensureDirs();
   const ext = path.extname(original || '').toLowerCase();

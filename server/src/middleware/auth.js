@@ -2,14 +2,9 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const env = require('../config/env');
 
-/**
- * Extract JWT from Authorization header ONLY.
- * Query-param tokens removed (RFC 6750 §2.3 — tokens in URLs leak via logs/referrer).
- */
 function extractToken(req) {
   const auth = req.headers.authorization;
   if (auth && auth.startsWith('Bearer ')) return auth.slice(7);
-  // Fallback to query param for <video> and <audio> tags which can't send headers
   if (req.query && req.query.token) return req.query.token;
   return null;
 }

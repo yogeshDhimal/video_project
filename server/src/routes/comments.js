@@ -12,7 +12,7 @@ const router = express.Router({ mergeParams: true });
 router.get('/', optionalAuth, async (req, res) => {
   const { episodeId } = req.params;
   const allComments = await Comment.find({ episodeId }).sort({ createdAt: -1 }).lean();
-  
+
   if (!allComments.length) return res.json({ comments: [] });
 
   const userIds = [...new Set(allComments.map(c => c.userId.toString()))];
@@ -21,9 +21,9 @@ router.get('/', optionalAuth, async (req, res) => {
 
   let userVotes = {};
   if (req.user) {
-    const votes = await CommentVote.find({ 
-      userId: req.user._id, 
-      commentId: { $in: allComments.map(c => c._id) } 
+    const votes = await CommentVote.find({
+      userId: req.user._id,
+      commentId: { $in: allComments.map(c => c._id) }
     }).lean();
     userVotes = Object.fromEntries(votes.map(v => [v.commentId.toString(), v.value]));
   }
@@ -78,7 +78,7 @@ router.delete('/:commentId', authenticate, async (req, res) => {
     return res.status(403).json({ message: 'Forbidden' });
   }
   await Comment.deleteMany({ $or: [{ _id: c._id }, { parentId: c._id }] });
-  await CommentVote.deleteMany({ commentId: c._id }); // cleanup
+  await CommentVote.deleteMany({ commentId: c._id });
   res.json({ message: 'Deleted' });
 });
 

@@ -14,8 +14,4 @@ const dashboardStatsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// We only ever want one document (the latest stats)
-// or a history if we decide to track trends later.
-// For now, we'll just keep it simple.
-
 module.exports = mongoose.model('DashboardStats', dashboardStatsSchema);

@@ -1,6 +1,3 @@
-/**
- * Required fields before a series can be published (visible in the public catalog).
- */
 function validatePublishedSeriesDoc(doc) {
   const desc = (doc.description || '').trim();
   if (desc.length < 20) {

@@ -31,7 +31,6 @@ const ChatMessageSchema = new mongoose.Schema({
   }
 });
 
-// Index for efficient cleanup if needed
 ChatMessageSchema.index({ createdAt: 1 });
 ChatMessageSchema.index({ isFlagged: 1 });
 

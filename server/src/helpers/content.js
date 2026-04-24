@@ -12,10 +12,6 @@ async function getEpisodeChain(episodeId) {
   return { episode: ep, season, series };
 }
 
-/**
- * Fixed N+1 query: fetches ALL episodes for a series in a single query
- * instead of one query per season.
- */
 async function listEpisodesForSeries(seriesId) {
   const seasons = await Season.find({ seriesId }).sort({ number: 1 }).lean();
   const seasonIds = seasons.map((s) => s._id);
@@ -93,7 +89,6 @@ async function updateRatings(episodeId) {
   }
   await episode.save();
 
-  // Now bubble up to Series
   const season = await Season.findById(episode.seasonId);
   if (!season) return;
 

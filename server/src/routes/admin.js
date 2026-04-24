@@ -15,22 +15,16 @@ router.use(authenticate, requireRole('admin'));
 
 router.get('/dashboard', async (_req, res) => {
   try {
-    // 1. Try to get from Redis first (the fastest path)
     if (redis) {
       const cached = await redis.get(REDIS_KEY);
       if (cached) {
-        // console.log('[CACHE HIT] Serving from Redis');
         return res.json(JSON.parse(cached));
       }
     }
 
-    // 2. Fallback to MongoDB DashboardStats collection
-    // console.log('[CACHE MISS] Falling back to MongoDB');
     let stats = await DashboardStats.findOne().lean();
 
-    // 3. If everything is empty (first run), trigger an update immediately
     if (!stats) {
-      // console.log('[CACHE EMPTY] Triggering initial aggregation');
       stats = await updateDashboardStats();
     }
 
@@ -73,16 +67,13 @@ router.patch('/users/:id/role', async (req, res) => {
   res.json({ user: u });
 });
 
-/** Moderation Endpoints */
 router.delete('/moderation/comments/:id', async (req, res) => {
   await Comment.findByIdAndDelete(req.params.id);
-  // Also delete all replies to this comment
   await Comment.deleteMany({ parentId: req.params.id });
   await DashboardStats.findOneAndUpdate({}, { $inc: { totalReportsResolved: 1 } }, { upsert: true });
   res.json({ message: 'Deleted' });
 });
 
-/** Moderation Endpoints */
 router.get('/moderation/flags', async (req, res) => {
   const [comments, chatMessages] = await Promise.all([
     Comment.find({ isFlagged: true })

@@ -3,10 +3,6 @@ const path = require('path');
 const { VIDEOS, HLS } = require('../config/paths');
 const { calculateVideoRange } = require('../algorithms/video-streaming');
 
-/**
- * HTTP Range streaming for a single video file (MP4/MKV).
- * Prevents directory traversal via fileName validation.
- */
 function sendVideoRange(req, res, absoluteFilePath) {
   return new Promise((resolve, reject) => {
     fs.stat(absoluteFilePath, (err, stat) => {
@@ -41,7 +37,6 @@ function sendVideoRange(req, res, absoluteFilePath) {
           'Cache-Control': 'public, max-age=0',
         });
         const stream = fs.createReadStream(absoluteFilePath, { start, end });
-        // Destroy stream cleanly when client disconnects (prevents ECONNRESET errors)
         res.on('close', () => { stream.destroy(); resolve(); });
         stream.on('error', (err) => {
           if (err.code === 'ECONNRESET' || err.code === 'ERR_STREAM_DESTROYED') return resolve();
@@ -58,7 +53,6 @@ function sendVideoRange(req, res, absoluteFilePath) {
           'Cache-Control': 'public, max-age=0',
         });
         const stream = fs.createReadStream(absoluteFilePath);
-        // Destroy stream cleanly when client disconnects (prevents ECONNRESET errors)
         res.on('close', () => { stream.destroy(); resolve(); });
         stream.on('error', (err) => {
           if (err.code === 'ECONNRESET' || err.code === 'ERR_STREAM_DESTROYED') return resolve();

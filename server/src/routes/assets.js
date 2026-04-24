@@ -9,7 +9,6 @@ const { POSTERS, AVATARS, THUMBNAILS } = require('../config/paths');
 
 const router = express.Router();
 
-// Fixed: check both POSTERS and THUMBNAILS for backward compatibility (issue 2.6)
 router.get('/poster/:seriesId', optionalAuth, asyncHandler(async (req, res) => {
   const s = await Series.findById(req.params.seriesId);
   if (!s || !s.posterPath) return res.status(404).end();
@@ -18,7 +17,6 @@ router.get('/poster/:seriesId', optionalAuth, asyncHandler(async (req, res) => {
   const fileName = path.basename(s.posterPath);
   let abs = path.join(POSTERS, fileName);
   
-  // Fallback to THUMBNAILS if not in POSTERS
   if (!fs.existsSync(abs)) {
     abs = path.join(THUMBNAILS, fileName);
   }

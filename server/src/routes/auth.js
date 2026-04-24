@@ -63,7 +63,6 @@ router.post(
     if (user.banned) return res.status(403).json({ message: 'Account suspended', reason: user.banReason });
     const ok = await user.comparePassword(password);
     if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
-    // Use updateOne instead of full save to avoid triggering pre-save hooks (issue 2.4)
     await User.updateOne({ _id: user._id }, { $set: { lastActiveAt: new Date() } });
     const token = signUser(user);
     const safe = user.toObject();

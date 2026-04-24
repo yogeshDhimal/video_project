@@ -11,15 +11,10 @@ const router = express.Router();
 
 router.use(authenticate, requireRole('admin'));
 
-/**
- * GET /admin/analytics/growth
- * Provides user growth data for the last 30 days.
- */
 router.get('/growth', async (req, res) => {
   try {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    
-    // Aggregation to group users by day of registration
+
     const growth = await User.aggregate([
       { $match: { createdAt: { $gte: thirtyDaysAgo } } },
       {
@@ -38,10 +33,6 @@ router.get('/growth', async (req, res) => {
   }
 });
 
-/**
- * GET /admin/analytics/popularity
- * Top 5 series by views.
- */
 router.get('/popularity', async (req, res) => {
   try {
     const topSeries = await Series.find()
@@ -57,10 +48,6 @@ router.get('/popularity', async (req, res) => {
   }
 });
 
-/**
- * GET /admin/analytics/summary
- * Quick overview stats (Pulse Row).
- */
 router.get('/summary', async (req, res) => {
   try {
     const [userCount, seriesCount, watchData, commentCount, reportCount, stats] = await Promise.all([
@@ -90,10 +77,6 @@ router.get('/summary', async (req, res) => {
   }
 });
 
-/**
- * GET /admin/analytics/genres
- * Distribution of series by genre.
- */
 router.get('/genres', async (req, res) => {
   try {
     const genres = await Series.aggregate([
@@ -109,10 +92,6 @@ router.get('/genres', async (req, res) => {
   }
 });
 
-/**
- * GET /admin/analytics/watchtime
- * Top 5 series by actual watch time (engagement).
- */
 router.get('/watchtime', async (req, res) => {
   try {
     const leaderboard = await AnalyticsSession.aggregate([
@@ -135,14 +114,10 @@ router.get('/watchtime', async (req, res) => {
         $lookup: {
           from: 'series',
           localField: 'episode.seasonId',
-          foreignField: '_id', // Wait, episode has seasonId, season has seriesId
+          foreignField: '_id',
           as: 'series_lookup'
         }
       },
-      // Since it's nested (Episode -> Season -> Series), I'll just aggregate by Episode Title for simplicity 
-      // or try to group by Series if I can.
-      // Let's stick to Episode engagement leaderboard for now or simple Series views was already there.
-      // Actually, let's group by Episode Title to show people what specifically is being watched.
       {
         $group: {
           _id: '$episode.title',

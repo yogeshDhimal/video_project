@@ -45,15 +45,14 @@ router.get('/', authenticate, async (req, res) => {
     .sort({ lastWatchedAt: -1 })
     .limit(100)
     .lean();
-  
-  // Populate episode, season, and series data
+
   const epIds = rows.map((r) => r.episodeId);
   const episodes = await Episode.find({ _id: { $in: epIds } }).lean();
   const emap = Object.fromEntries(episodes.map((e) => [e._id.toString(), e]));
-  
+
   const seasons = await Season.find({ _id: { $in: episodes.map((e) => e.seasonId) } }).lean();
   const smap = Object.fromEntries(seasons.map((s) => [s._id.toString(), s]));
-  
+
   const series = await Series.find({ _id: { $in: seasons.map((s) => s.seriesId) } }).lean();
   const seriesMap = Object.fromEntries(series.map((s) => [s._id.toString(), s]));
 
@@ -97,11 +96,10 @@ router.post(
     const ratio = durationSeconds > 0 ? progressSeconds / durationSeconds : 0;
     const completed = ratio >= 0.95;
 
-    if (!req.user) return res.json({ ok: true }); // No-op for guests
+    if (!req.user) return res.json({ ok: true });
 
     const isHidden = req.user.watchHistoryPaused ? true : false;
-    
-    // If it already exists and was hidden, but now they are watching it while NOT paused, we un-hide it!
+
     const doc = await WatchHistory.findOneAndUpdate(
       { userId: req.user._id, episodeId: ep._id },
       {
@@ -110,7 +108,7 @@ router.post(
           durationSeconds,
           completed,
           lastWatchedAt: new Date(),
-          isHidden, // Will be set to true if paused, false if tracking.
+          isHidden,
         },
       },
       { upsert: true, new: true }

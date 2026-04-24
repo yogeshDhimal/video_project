@@ -65,24 +65,18 @@ router.get(
       return true;
     });
 
-    // Ensure we always have some trending results as a fallback
     const trendingFallback = [...allSeries]
       .sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0))
       .slice(0, 30);
 
-
-    // Targeted Split Search Logic
     if (isActiveSearch && q?.trim()) {
       const fuseS = createFuzzyIndex(seriesResults, ['title', 'description', 'tags'], { threshold: 0.25 });
       const rawResults = fuseS.search(q);
-      
-      // The internal search now uses the 0.25 threshold, so we just map items
       seriesResults = rawResults.map(r => r.item);
 
       const fuseE = createFuzzyIndex(episodeResults, ['title'], { threshold: 0.25 });
       episodeResults = fuseE.search(q).map(r => r.item);
 
-      // Handle Sorting
       if (sort === 'year') {
         seriesResults.sort((a, b) => (b.releaseYear || 0) - (a.releaseYear || 0));
       } else if (sort === 'popularity') {
@@ -98,14 +92,12 @@ router.get(
          seriesResults = fuseTag.search(tag).map(r => r.item);
        }
     } else {
-      // Direct Trending Result
       seriesResults = trendingFallback;
       episodeResults.sort((a, b) => (b.trendingScore || 0) - (a.trendingScore || 0));
     }
 
-    // IF search was active but no matches found, swap in trending as 'recommendations'
-    const finalSeries = (isActiveSearch && seriesResults.length === 0) 
-      ? trendingFallback 
+    const finalSeries = (isActiveSearch && seriesResults.length === 0)
+      ? trendingFallback
       : seriesResults.slice(0, 40);
 
     const matchFound = isActiveSearch && seriesResults.length > 0;
@@ -118,9 +110,6 @@ router.get(
     });
   }
 );
-
-
-
 
 router.get('/suggest', [query('q').isString().trim().isLength({ min: 1, max: 80 })], async (req, res) => {
   const errors = validationResult(req);

@@ -17,19 +17,16 @@ async function main() {
   }
   await connectDB(env.mongoUri);
   const server = http.createServer(app);
-  // Increase keep-alive timeouts to prevent ECONNRESET issues with Vite proxy
   server.keepAliveTimeout = 65000;
   server.headersTimeout = 66000;
   initSocket(server, app);
 
-  // Initialize and run the dashboard stats job on startup
   const { updateDashboardStats } = require('./jobs/dashboardStats');
-  updateDashboardStats(); // Don't await, let it run in background
+  updateDashboardStats();
 
   server.on('error', (e) => {
     if (e.code === 'EADDRINUSE') {
-      console.error(`\n❌ Error: Port ${PORT} is already in use.`);
-      console.error(`💡 Try running: npm run kill-port\n`);
+      console.error(`Port ${PORT} is already in use.`);
       process.exit(1);
     } else {
       console.error('Server error:', e);
@@ -37,7 +34,7 @@ async function main() {
   });
 
   server.listen(PORT, () => {
-    console.log(`ClickWatch API listening on ${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}`);
   });
 }
 

@@ -15,7 +15,6 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
   res.json({ items: series });
 }));
 
-// New: lightweight bookmark check endpoint (issue 3.4)
 router.get('/:seriesId/check', authenticate, asyncHandler(async (req, res) => {
   const exists = await Bookmark.findOne({ userId: req.user._id, seriesId: req.params.seriesId }).lean();
   res.json({ bookmarked: !!exists });

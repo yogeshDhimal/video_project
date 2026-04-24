@@ -1,8 +1,3 @@
-/**
- * Centralized environment configuration.
- * Validates and exports all environment variables so the rest
- * of the codebase never touches process.env directly.
- */
 require('dotenv').config();
 
 const env = {

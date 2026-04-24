@@ -35,8 +35,6 @@ router.get('/episode/:episodeId/quality/:qualityKey', streamLimiter, optionalAut
   }
 });
 
-/** Optional HLS: use quality.hlsManifestRelative; serve with GET /api/stream/hls-file (see streamService.resolveHlsPath). */
-
 router.get('/subtitle/:episodeId/:fileName', streamLimiter, optionalAuth, async (req, res) => {
   const ep = await Episode.findById(req.params.episodeId);
   if (!ep) return res.status(404).json({ message: 'Not found' });

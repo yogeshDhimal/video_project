@@ -3,7 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
-const morgan = require('morgan');
 const { apiLimiter } = require('./middleware/rateLimiters');
 const { ensureDirs } = require('./config/multer');
 
@@ -37,7 +36,6 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(compression());
 app.use(cors({ origin: process.env.CLIENT_URL || true, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
-app.use(morgan('dev'));
 app.use('/api', apiLimiter);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));

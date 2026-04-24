@@ -15,19 +15,15 @@ function initSocket(httpServer, app) {
     cors: { origin: true, credentials: true },
   });
 
-  // Global viewer tracking helper
   const broadcastGlobalViewers = async () => {
     if (!redis) return;
     const count = await redis.get(REDIS_VIEWERS_KEY);
     io.to('admin:stats').emit('global_active_viewers', { count: parseInt(count || 0) });
   };
 
-  // Fixed: Socket.IO authentication middleware (issue 2.7)
-  // Verifies JWT on connection instead of trusting client-supplied userId
   io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) {
-      // Allow unauthenticated connections for read-only presence
       socket.data.user = null;
       return next();
     }
@@ -42,18 +38,16 @@ function initSocket(httpServer, app) {
       next();
     } catch (e) {
       socket.data.user = null;
-      next(); // Allow connection but without auth
+      next();
     }
   });
 
   io.on('connection', (socket) => {
-    // 1. Increment global active viewers in Redis (non-blocking)
     if (redis) {
       redis.incr(REDIS_VIEWERS_KEY).then(() => broadcastGlobalViewers()).catch(console.error);
     }
 
     socket.on('disconnect', () => {
-      // 2. Decrement global active viewers in Redis (non-blocking)
       if (redis) {
         redis.decr(REDIS_VIEWERS_KEY).then(() => broadcastGlobalViewers()).catch(console.error);
       }
@@ -65,7 +59,6 @@ function initSocket(httpServer, app) {
       }
     });
 
-    // 3. Admin-only stats channel
     socket.on('join_admin_stats', () => {
       if (socket.data.user?.role === 'admin') {
         socket.join('admin:stats');
@@ -82,26 +75,24 @@ function initSocket(httpServer, app) {
       socket.leave(`ep:${episodeId}`);
     });
 
-    // Fixed: use verified socket.data.user instead of client-supplied userId (issue 2.7)
     socket.on('live_comment', async (payload, cb) => {
       try {
         const user = socket.data.user;
         if (!user) return cb?.({ error: 'Authentication required' });
         const { episodeId, body } = payload;
         if (!episodeId || !body) return cb?.({ error: 'Invalid' });
-        
-        // Save to DB for moderation
+
         const msgDoc = await ChatMessage.create({
           userId: user._id,
           episodeId,
           body: String(body).slice(0, 4000)
         });
 
-        const msg = { 
+        const msg = {
           _id: msgDoc._id,
           body: msgDoc.body,
           createdAt: msgDoc.createdAt,
-          user: { username: user.username, avatar: user.avatar } 
+          user: { username: user.username, avatar: user.avatar }
         };
         io.to(`ep:${episodeId}`).emit('live_comment', msg);
         cb?.({ ok: true, comment: msg });
@@ -110,7 +101,6 @@ function initSocket(httpServer, app) {
       }
     });
 
-    // --- Watch Room Logic ---
     const updateWatchRoomViewers = (roomId) => {
       const count = io.sockets.adapter.rooms.get(`wr:${roomId}`)?.size || 0;
       io.to(`wr:${roomId}`).emit('watch_room_viewers', { count });
@@ -118,7 +108,6 @@ function initSocket(httpServer, app) {
 
     socket.on('join_watch_room', async (roomId, cb) => {
       const user = socket.data.user;
-      // Private room check: verify user has been authorized via PIN
       const r = await WatchRoom.findById(roomId).lean();
       if (!r) return cb?.({ error: 'Room not found' });
 
@@ -153,7 +142,6 @@ function initSocket(httpServer, app) {
       }
     });
 
-    // Fixed: use verified socket.data.user._id instead of client-supplied userId (issue 2.7)
     socket.on('watch_room_control', async ({ roomId, action, payload }, cb) => {
       const user = socket.data.user;
       if (!user) return cb?.({ error: 'Authentication required' });
@@ -161,14 +149,14 @@ function initSocket(httpServer, app) {
       if (!r || r.hostId.toString() !== user._id.toString()) {
         return cb?.({ error: 'Only the host can control playback' });
       }
-      
+
       if (action === 'close_room') {
         r.status = 'finished';
         await r.save();
         io.to(`wr:${roomId}`).emit('watch_room_sync', { action: 'close_room' });
         return;
       }
-      
+
       if (action === 'play') {
         r.status = 'active';
         r.isPlaying = true;
@@ -186,18 +174,16 @@ function initSocket(httpServer, app) {
         r.currentVideoTime = 0;
         r.playbackUpdatedAt = new Date();
       }
-      
+
       await r.save();
       io.to(`wr:${roomId}`).emit('watch_room_sync', { action, payload, room: r });
     });
 
-    // Fixed: use verified user, sanitize and limit message length (issues 2.7, 6.6)
     socket.on('watch_room_chat', async ({ roomId, message }) => {
       const user = socket.data.user;
       if (!user) return;
       const sanitized = String(message || '').trim().slice(0, 2000);
       if (sanitized) {
-        // Save to DB for moderation
         const msgDoc = await ChatMessage.create({
           userId: user._id,
           watchRoomId: roomId,
@@ -214,13 +200,11 @@ function initSocket(httpServer, app) {
     });
   });
 
-  // Fixed: increased interval from 5s to 60s, added error logging (issue 2.9)
   setInterval(async () => {
     try {
       const now = new Date();
       const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
 
-      // 1. Auto-Start scheduled rooms whose time has come
       const readyRooms = await WatchRoom.find({ status: 'scheduled', scheduledStartTime: { $lte: now, $gt: sixHoursAgo } });
       for (const r of readyRooms) {
         r.status = 'active';
@@ -231,13 +215,11 @@ function initSocket(httpServer, app) {
         io.to(`wr:${r._id}`).emit('watch_room_sync', { action: 'room_started', payload: {}, room: r });
       }
 
-      // 2. Garbage Collection: Mark abandoned Scheduled rooms as finished
       await WatchRoom.updateMany(
         { status: 'scheduled', scheduledStartTime: { $lte: sixHoursAgo } },
         { status: 'finished' }
       );
 
-      // 3. Garbage Collection: Mark stagnant Active rooms as finished
       await WatchRoom.updateMany(
         { status: 'active', playbackUpdatedAt: { $lte: sixHoursAgo } },
         { status: 'finished' }
@@ -245,7 +227,7 @@ function initSocket(httpServer, app) {
     } catch (e) {
       console.error('[WatchRoom GC]', e.message);
     }
-  }, 60_000); // Every 60 seconds instead of 5 seconds
+  }, 60_000);
 
   app.set('io', io);
   return io;
