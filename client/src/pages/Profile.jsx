@@ -191,7 +191,7 @@ export default function Profile() {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 sm:py-12">
+    <div className="w-full px-8 sm:px-12 md:px-16 lg:px-20 py-8 sm:py-12">
       <div className="grid md:grid-cols-12 gap-10">
         {/* Profile Sidebar */}
         <div className="md:col-span-4 lg:col-span-3 space-y-8 sticky top-8 self-start h-fit">
@@ -366,7 +366,7 @@ export default function Profile() {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 sm:gap-8">
                   {bookmarks.map((series) => (
                     <div
                       key={series._id}

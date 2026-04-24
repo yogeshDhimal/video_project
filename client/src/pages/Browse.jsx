@@ -30,7 +30,7 @@ export default function Browse() {
   }, [page, genre, sort]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
+    <div className="w-full px-8 sm:px-12 md:px-16 lg:px-20 py-10 sm:py-12">
       <SectionHeader
         title="Browse"
         subtitle={total ? `${total} titles in your library` : 'Explore everything you’ve added'}
@@ -69,7 +69,7 @@ export default function Browse() {
           actionTo="/"
         />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 sm:gap-8">
           {items.map((s) => (
             <SeriesCard key={s._id} series={s} />
           ))}

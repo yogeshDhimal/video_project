@@ -103,7 +103,7 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-20 min-h-[90vh]">
+    <div className="w-full px-8 sm:px-12 md:px-16 lg:px-20 py-10 sm:py-20 min-h-[90vh]">
       {/* Unified Search Console — Stabilized Layout */}
       <div className="max-w-4xl mx-auto flex flex-col items-center mb-16 relative">
         
@@ -193,7 +193,7 @@ export default function SearchPage() {
       {/* Content Grid — Always rendered to show either matches or trending fallback */}
       <div className="animate-fadeUp">
         {results.series?.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 sm:gap-10">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 sm:gap-10">
             {results.series.map((s) => (
               <SeriesCard key={s._id} series={s} />
             ))}

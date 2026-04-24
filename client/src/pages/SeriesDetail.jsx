@@ -69,7 +69,7 @@ export default function SeriesDetail() {
 
   if (loadError) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-20 text-center">
+      <div className="w-full px-8 sm:px-12 md:px-16 lg:px-20 py-20 text-center">
         <p className="text-slate-700 dark:text-slate-300 font-medium mb-2">Couldn’t load this title</p>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">It may have been removed or isn’t available.</p>
         <Link to="/browse" className="text-teal-600 dark:text-teal-400 font-medium hover:underline">
@@ -81,7 +81,7 @@ export default function SeriesDetail() {
 
   if (!data) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-24 flex justify-center">
+      <div className="w-full px-8 sm:px-12 md:px-16 lg:px-20 py-24 flex justify-center">
         <Spinner label="Loading series…" />
       </div>
     );
@@ -91,7 +91,7 @@ export default function SeriesDetail() {
   const token = localStorage.getItem('sv_token');
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-10">
+    <div className="w-full px-8 sm:px-12 md:px-16 lg:px-20 py-10">
       <div className="flex flex-col md:flex-row gap-8 mb-10">
         <div className="w-48 shrink-0 mx-auto md:mx-0">
           <img
@@ -260,7 +260,7 @@ export default function SeriesDetail() {
               Similar Series
             </h2>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 sm:gap-8">
             {similarSeries.map(({ series: s, similarity }) => (
               <Link
                 key={s._id}

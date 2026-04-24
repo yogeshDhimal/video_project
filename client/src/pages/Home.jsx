@@ -32,7 +32,7 @@ function EpisodeStrip({ title, subtitle, items, loading, emptyTitle, emptyDescri
   return (
     <section className="mb-14 animate-fadeUp">
       <SectionHeader title={title} subtitle={subtitle} />
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 sm:gap-8">
         {items.map((row) => (
           <SeriesCard key={row.episode?._id || row.series?._id} series={row.series} episodeId={row.episode._id} mathProof={row.mathProof} pearsonPredicted={row.pearsonPredicted} history={row.history} />
         ))}
@@ -108,8 +108,8 @@ export default function Home() {
         ) : null}
       </section>
 
-      {/* Main Content Sections — Constrained */}
-      <div className="max-w-7xl mx-auto px-4 py-10 sm:py-16">
+      {/* Main Content Sections — Constrained to align with Spotlight padding */}
+      <div className="w-full px-8 sm:px-12 md:px-16 lg:px-20 py-10 sm:py-16">
         {user && (
           <EpisodeStrip
             title="Continue watching"
@@ -161,7 +161,7 @@ export default function Home() {
               actionTo="/browse"
             />
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 sm:gap-8">
               {recentValid.map((row) => (
                 <SeriesCard key={row.episode._id} series={row.series} episodeId={row.episode._id} />
               ))}

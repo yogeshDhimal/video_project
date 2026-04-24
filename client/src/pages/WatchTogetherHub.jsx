@@ -121,7 +121,7 @@ export default function WatchTogetherHub() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="w-full px-8 sm:px-12 md:px-16 lg:px-20 py-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
           <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
@@ -161,7 +161,7 @@ export default function WatchTogetherHub() {
       {loading ? (
         <div className="py-20 flex justify-center"><Spinner label="Loading rooms..." /></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {tab === 'live' && rooms.active.length === 0 && <p className="text-slate-500 col-span-full">No active watch parties. Why not create one?</p>}
           {tab === 'upcoming' && rooms.scheduled.length === 0 && <p className="text-slate-500 col-span-full">No upcoming watch parties scheduled.</p>}
           {tab === 'me' && myRooms.length === 0 && <p className="text-slate-500 col-span-full">You haven't created any watch rooms yet.</p>}
