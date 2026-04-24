@@ -4,7 +4,7 @@ import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 
-// Pages
+
 import Home from './pages/Home';
 import Browse from './pages/Browse';
 import SearchPage from './pages/SearchPage';
@@ -18,7 +18,7 @@ import WatchTogetherCreate from './pages/WatchTogetherCreate';
 import WatchRoomPage from './pages/WatchRoomPage';
 import NotFound from './pages/NotFound';
 
-// Lazy load admin components to reduce initial bundle size
+
 const AdminLayout = React.lazy(() => import('./admin/AdminLayout'));
 const AdminDashboard = React.lazy(() => import('./admin/AdminDashboard'));
 const AdminSeriesIndex = React.lazy(() => import('./admin/AdminSeriesIndex'));

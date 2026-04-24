@@ -20,7 +20,6 @@ export default function Profile() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [avatarHash, setAvatarHash] = useState(Date.now());
 
-  // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -193,7 +192,6 @@ export default function Profile() {
   return (
     <div className="w-full px-8 sm:px-12 md:px-16 lg:px-20 py-8 sm:py-12">
       <div className="grid md:grid-cols-12 gap-10">
-        {/* Profile Sidebar */}
         <div className="md:col-span-4 lg:col-span-3 space-y-8 sticky top-8 self-start h-fit">
           <div>
             <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white mb-6 tracking-tight">
@@ -233,9 +231,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Main Content Area with Tabs */}
         <div className="md:col-span-8 lg:col-span-9">
-          {/* Tab Navigation */}
           <div className="flex gap-2 mb-8 border-b border-slate-200 dark:border-white/10 sticky top-0 z-20 bg-white dark:bg-charcoal-900/80 backdrop-blur supports-[backdrop-filter]:bg-white/80 supports-[backdrop-filter]:dark:bg-charcoal-900/80">
             {tabs.map((tab) => (
               <button
@@ -258,10 +254,8 @@ export default function Profile() {
             ))}
           </div>
 
-          {/* Tab Content */}
           {activeTab === 'watchlist' && (
             <div>
-              {/* Continue Watching Section */}
               {continueWatching.length > 0 && (
                 <div className="mb-10">
                   <h3 className="font-display text-xl font-bold text-slate-900 dark:text-white mb-4">
@@ -319,7 +313,6 @@ export default function Profile() {
                 </div>
               )}
 
-              {/* Watchlist Section */}
               <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
                 <div>
                   <h2 className="font-display text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
@@ -472,7 +465,6 @@ export default function Profile() {
                             {item.episode?.title}
                           </p>
 
-                          {/* Progress Bar */}
                           <div className="mb-2">
                             <div className="w-full bg-slate-200 dark:bg-charcoal-800 rounded-full h-1.5 overflow-hidden">
                               <div
@@ -528,7 +520,6 @@ export default function Profile() {
               </div>
 
               <div className="space-y-6">
-                {/* Profile Settings */}
                 <div className="bg-white dark:bg-charcoal-900/40 p-6 rounded-2xl border border-slate-200 shadow-sm dark:border-white/5">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
                     Profile Information
@@ -553,7 +544,6 @@ export default function Profile() {
                   </form>
                 </div>
 
-                {/* Password Change */}
                 <div className="bg-white dark:bg-charcoal-900/40 p-6 rounded-2xl border border-slate-200 shadow-sm dark:border-white/5">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
                     Change Password
@@ -607,7 +597,6 @@ export default function Profile() {
                   </form>
                 </div>
 
-                {/* Account & Preferences */}
                 <div className="bg-white dark:bg-charcoal-900/40 p-6 rounded-2xl border border-slate-200 shadow-sm dark:border-white/5">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
                     Account & Preferences

@@ -27,7 +27,7 @@ export default function AdminDashboard() {
   const [liveViewers, setLiveViewers] = useState(0);
 
   useEffect(() => {
-    // 1. Fetch static dashboard stats
+
     const fetchStats = async () => {
       try {
         const [dashRes, growthRes] = await Promise.all([
@@ -44,7 +44,7 @@ export default function AdminDashboard() {
     };
     fetchStats();
 
-    // 2. Real-time viewer tracking
+
     const socket = io(import.meta.env.VITE_API_URL || '', {
       auth: { token: localStorage.getItem('token') },
     });

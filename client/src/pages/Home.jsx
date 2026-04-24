@@ -50,8 +50,7 @@ export default function Home() {
   const [publicLoading, setPublicLoading] = useState(true);
   const [userLoading, setUserLoading] = useState(false);
 
-  // Fixed: split into two effects so public data isn't refetched on user change (issue 3.6)
-  // Effect 1: Public data (trending + recent) — runs once
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -68,7 +67,7 @@ export default function Home() {
     return () => { cancelled = true; };
   }, []);
 
-  // Effect 2: User-specific data (recommendations + continue watching)
+
   useEffect(() => {
     if (!user) {
       setRec([]);

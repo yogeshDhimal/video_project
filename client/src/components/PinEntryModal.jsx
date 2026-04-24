@@ -5,7 +5,7 @@ export default function PinEntryModal({ isOpen, onSubmit, onCancel, isLoading, e
   const [shake, setShake] = useState(false);
   const inputRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
 
-  // Reset digits when modal opens
+
   useEffect(() => {
     if (isOpen) {
       setDigits(['', '', '', '']);
@@ -13,7 +13,7 @@ export default function PinEntryModal({ isOpen, onSubmit, onCancel, isLoading, e
     }
   }, [isOpen]);
 
-  // Shake on error
+
   useEffect(() => {
     if (error) {
       setShake(true);
@@ -26,17 +26,17 @@ export default function PinEntryModal({ isOpen, onSubmit, onCancel, isLoading, e
   }, [error]);
 
   const handleChange = (index, value) => {
-    if (!/^\d?$/.test(value)) return; // Only allow single digit
+    if (!/^\d?$/.test(value)) return;
     const newDigits = [...digits];
     newDigits[index] = value;
     setDigits(newDigits);
 
-    // Auto-advance to next input
+
     if (value && index < 3) {
       inputRefs[index + 1].current?.focus();
     }
 
-    // Auto-submit when all 4 digits entered
+
     if (value && index === 3) {
       const pin = newDigits.join('');
       if (pin.length === 4) {

@@ -7,7 +7,7 @@ export default function WatchlistDropdown() {
   const [items, setItems] = useState([]);
   const ref = useRef(null);
 
-  // Fetch count on mount independently, and fetch full list when opened
+
   useEffect(() => {
     let active = true;
     api.get('/bookmarks')

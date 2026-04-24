@@ -18,14 +18,14 @@ export default function NotificationsDropdown() {
         const { data } = await api.get('/notifications');
         setNotifications(data.items || []);
       } catch (err) { 
-        // silently fail on polling
+
       }
     };
     
-    // Initial fetch
+
     fetchNotifications();
     
-    // Polling every 60 seconds
+
     const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
   }, [user]);
@@ -43,7 +43,7 @@ export default function NotificationsDropdown() {
   const handleRead = async (id, link) => {
     setOpen(false);
     
-    // Optimistic UI updates
+
     const prev = [...notifications];
     setNotifications((prevNotes) => 
       prevNotes.map((n) => (n._id === id ? { ...n, read: true } : n))

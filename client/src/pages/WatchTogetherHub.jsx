@@ -30,17 +30,15 @@ function CountdownTimer({ targetDate }) {
 export default function WatchTogetherHub() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState('live'); // live, upcoming, me
+  const [tab, setTab] = useState('live');
   const [rooms, setRooms] = useState({ active: [], scheduled: [] });
   const [myRooms, setMyRooms] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // PIN modal state
   const [pinModal, setPinModal] = useState({ isOpen: false, roomId: null });
   const [pinError, setPinError] = useState('');
   const [pinLoading, setPinLoading] = useState(false);
 
-  // Delete modal state
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, roomId: null });
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -85,7 +83,6 @@ export default function WatchTogetherHub() {
 
   const handleJoinRoom = (room) => {
     if (room.visibility === 'private') {
-      // Check if user is the host — hosts bypass PIN
       const isHost = user && (room.hostId?._id === user._id || room.hostId === user._id);
       if (isHost) {
         navigate(`/watch-together/${room._id}`);
@@ -108,7 +105,6 @@ export default function WatchTogetherHub() {
     try {
       const { data } = await api.post(`/watch-rooms/${pinModal.roomId}/join`, { pin });
       if (data.authorized) {
-        // Store auth in sessionStorage so page refresh doesn't re-prompt
         sessionStorage.setItem(`wr_auth_${pinModal.roomId}`, 'true');
         setPinModal({ isOpen: false, roomId: null });
         navigate(`/watch-together/${pinModal.roomId}`);

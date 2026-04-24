@@ -23,10 +23,8 @@ export default function SearchPage() {
   const [results, setResults] = useState({ series: [], isSearch: false });
   const [loading, setLoading] = useState(false);
 
-  // Single Ref for the Unified Input (Guarantees zero focus loss)
   const unifiedInputRef = useRef(null);
 
-  // Synchronize URL with debounced q
   useEffect(() => {
     if (debounced.trim()) {
       setSearchParams({ q: debounced }, { replace: true });
@@ -39,14 +37,12 @@ export default function SearchPage() {
 
   const [isListening, setIsListening] = useState(false);
 
-  // Focus Management (Stable and Precise)
   useEffect(() => {
     if (unifiedInputRef.current) {
       unifiedInputRef.current.focus();
     }
-  }, []); // Only focus on mount
+  }, []);
 
-  // Keyboard Shortcut: '/' to focus (logic stays, visual kbd removed)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
@@ -58,7 +54,6 @@ export default function SearchPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Native Speech Recognition Setup
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const isSupported = !!SpeechRecognition;
 
@@ -81,7 +76,6 @@ export default function SearchPage() {
     recognition.start();
   };
 
-  // Fetch Logic
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -104,10 +98,8 @@ export default function SearchPage() {
 
   return (
     <div className="w-full px-8 sm:px-12 md:px-16 lg:px-20 py-10 sm:py-20 min-h-[90vh]">
-      {/* Unified Search Console — Stabilized Layout */}
       <div className="max-w-4xl mx-auto flex flex-col items-center mb-16 relative">
         
-        {/* Explore Title — Fades out naturally in results mode */}
         <div className={`w-full transition-all duration-700 ease-in-out font-display ${isResultsMode ? 'opacity-0 -translate-y-10 scale-90 pointer-events-none absolute' : 'opacity-100 translate-y-0 scale-100 mb-12'}`}>
           <SectionHeader 
             title="Explore Content" 
@@ -115,7 +107,6 @@ export default function SearchPage() {
           />
         </div>
 
-        {/* Results Header — Fades in naturally when searching */}
         {isResultsMode && (
           <div className="text-center w-full animate-in fade-in slide-in-from-top-6 duration-700 mb-10">
             <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center justify-center gap-4">
@@ -132,7 +123,6 @@ export default function SearchPage() {
           </div>
         )}
 
-        {/* The Unified Hero Bar — This NEVER unmounts, fixing the focus problem */}
         <div className={`relative group w-full transition-all duration-700 ease-in-out ${isResultsMode ? 'max-w-2xl translate-y-0' : 'max-w-3xl translate-y-0'}`}>
           <input
             ref={unifiedInputRef}
@@ -173,7 +163,6 @@ export default function SearchPage() {
         </div>
       </div>
 
-      {/* Accuracy Layer: Shown when no direct matches found */}
       {isResultsMode && !results.matchFound && (
          <div className="mb-14 text-center py-12 px-6 bg-slate-50 dark:bg-white/[0.02] rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-white/10 animate-fadeUp">
             <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight mb-2">Finding your next favorite</h2>
@@ -181,7 +170,6 @@ export default function SearchPage() {
          </div>
       )}
 
-      {/* Landing Mode: Trending Header */}
       {!isResultsMode && (
         <div className="mb-10 flex items-center gap-4 animate-fadeUp">
           <span className="w-2 h-8 rounded-full bg-teal-500 shadow-[0_0_15px_-3px_rgba(20,184,166,0.5)]" />
@@ -190,7 +178,6 @@ export default function SearchPage() {
         </div>
       )}
 
-      {/* Content Grid — Always rendered to show either matches or trending fallback */}
       <div className="animate-fadeUp">
         {results.series?.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 sm:gap-10">

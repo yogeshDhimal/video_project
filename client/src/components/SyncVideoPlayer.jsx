@@ -18,7 +18,7 @@ export default function SyncVideoPlayer({
   isHost,
   socket,
   episodeId,
-  episode,        // full episode object (with qualities array)
+  episode,
   token,
   isPlaying,
   serverVideoTime,
@@ -36,12 +36,11 @@ export default function SyncVideoPlayer({
   const [fs, setFs] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const controlsTimerRef = useRef(null);
-  const lastSync = useRef(null); // Track when we last force-synced to avoid jitter
-  // Retry logic: auto-retry on network error (e.g. ECONNRESET on first load)
+  const lastSync = useRef(null);
   const retryCount = useRef(0);
   const retryTimer = useRef(null);
 
-  // Pick first quality key when episode loads
+
   useEffect(() => {
     if (episode?.qualities?.length) {
       setQualityKey(episode.qualities[0].key);
@@ -55,13 +54,13 @@ export default function SyncVideoPlayer({
     return streamUrl(episodeId, qualityKey, token);
   }, [episodeId, qualityKey, token]);
 
-  // Reset retry counter whenever the stream source changes
+
   useEffect(() => {
     retryCount.current = 0;
     clearTimeout(retryTimer.current);
   }, [src]);
 
-  // Attach native video event listeners for state mirroring
+
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -84,12 +83,12 @@ export default function SyncVideoPlayer({
     };
   }, [src]);
 
-  // Sync effect: react to server-driven state changes
+
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !src) return;
 
-    // Drift recovery: only snap if drift > 0.5s AND it's a new sync event
+
     const drift = Math.abs(v.currentTime - serverVideoTime);
     if (drift > 0.5 && lastSync.current !== serverVideoTime) {
       lastSync.current = serverVideoTime;
@@ -103,7 +102,7 @@ export default function SyncVideoPlayer({
     }
   }, [isPlaying, serverVideoTime, src]);
 
-  // Host control emitters
+
   const handlePlay = useCallback(() => {
     if (!isHost || !socket) return;
     const v = videoRef.current;
@@ -186,7 +185,7 @@ export default function SyncVideoPlayer({
         onSeeked={handleSeeked}
         onEnded={onEnded}
         onError={() => {
-          // Auto-retry up to 3 times when the stream fails (e.g. ECONNRESET on first load)
+
           if (retryCount.current < 3) {
             retryCount.current += 1;
             clearTimeout(retryTimer.current);

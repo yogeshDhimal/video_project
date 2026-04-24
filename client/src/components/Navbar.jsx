@@ -23,7 +23,7 @@ export default function Navbar() {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const userRef = useRef(null);
 
-  // Search Logic
+
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -31,7 +31,7 @@ export default function Navbar() {
   const [isListening, setIsListening] = useState(false);
   const searchRef = useRef(null);
 
-  // Native Speech Recognition
+
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const isSpeechSupported = !!SpeechRecognition;
 
@@ -54,7 +54,7 @@ export default function Navbar() {
     recognition.start();
   }, [isSpeechSupported, isListening, SpeechRecognition]);
 
-  // Live Suggest Logic
+
   useEffect(() => {
     const trimmed = searchQuery.trim();
     if (!trimmed) {
@@ -63,7 +63,7 @@ export default function Navbar() {
       return;
     }
 
-    // Set loading immediately to prevent "No Matches" flicker during debounce
+
     setSearchLoading(true);
 
     const delayDebounceFn = setTimeout(async () => {
@@ -84,7 +84,7 @@ export default function Navbar() {
   }, [searchQuery]);
 
 
-  // Close search/dropdowns on outside click
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (userRef.current && !userRef.current.contains(event.target)) {
@@ -98,7 +98,7 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Close search on route change
+
   useEffect(() => {
     setMobileMenuOpen(false);
     setUserDropdownOpen(false);

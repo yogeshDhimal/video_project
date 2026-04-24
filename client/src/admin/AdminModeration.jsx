@@ -15,14 +15,14 @@ export default function AdminModeration() {
   const [comments, setComments] = useState([]);
   const [chatMessages, setChatMessages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('comments'); // 'comments' or 'chat'
+  const [activeTab, setActiveTab] = useState('comments');
 
-  // Modal State
+
   const [modal, setModal] = useState({ 
     isOpen: false, 
-    type: null, // 'delete' | 'ban'
+    type: null,
     id: null, 
-    targetType: null, // 'comment' | 'chat'
+    targetType: null,
     userId: null,
     username: ''
   });
@@ -102,7 +102,7 @@ export default function AdminModeration() {
       } else if (modal.type === 'ban') {
         await api.patch(`/admin/users/${modal.userId}/ban`);
         toast.success(`User ${modal.username} has been banned.`);
-        // Note: We don't necessarily remove other flags from this user unless we refresh
+
       }
     } catch (err) {
       toast.error(`Action failed: ${err.response?.data?.message || err.message}`);

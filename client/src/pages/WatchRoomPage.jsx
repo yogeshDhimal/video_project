@@ -30,17 +30,12 @@ export default function WatchRoomPage() {
   const [activeDrawerTab, setActiveDrawerTab] = useState('chat');
   const socketRef = useRef(null);
 
-  // Private room gate state
-  const [requiresPin, setRequiresPin] = useState(false);
   const [pinError, setPinError] = useState('');
   const [pinLoading, setPinLoading] = useState(false);
 
-  // Real-time player state (server authoritative)
-  const [isPlaying, setIsPlaying] = useState(false);
   const [serverTime, setServerTime] = useState(0);
   const [currentEpIdx, setCurrentEpIdx] = useState(0);
 
-  // Step 1: Load full populated room via REST
   useEffect(() => {
     if (authLoading) return;
     if (!user) { setError('Login required'); return; }
@@ -310,7 +305,6 @@ export default function WatchRoomPage() {
             </div>
           </div>
 
-          {/* Persistent Room Chat (Mobile Only) - Dynamic height to fill screen */}
           <div className="flex-1 min-h-0 lg:hidden mt-4 bg-white dark:bg-charcoal-900/60 rounded-3xl border border-slate-200 dark:border-white/5 overflow-hidden flex flex-col shadow-sm mb-4">
             <div className="px-5 py-3 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50 dark:bg-white/5">
                <div className="flex items-center gap-2">
@@ -385,7 +379,6 @@ export default function WatchRoomPage() {
             </div>
           )}
 
-          {/* New Playlist Design below Player */}
           <div className="bg-white dark:bg-white/[0.02] rounded-3xl border border-slate-200 dark:border-white/5 p-6 mt-8">
              <div className="flex items-center justify-between mb-6">
                 <h3 className="font-black uppercase tracking-widest text-[11px] text-slate-500">Queue & Timeline</h3>
@@ -415,7 +408,6 @@ export default function WatchRoomPage() {
           </div>
         </div>
 
-        {/* Persistent Chat Sidebar (Hides when hub is open for wide mode) */}
         {!isDrawerOpen && (
           <div className="hidden lg:flex flex-col gap-4 animate-fadeIn">
             <div className="rounded-3xl border border-slate-200 dark:border-white/5 bg-white dark:bg-charcoal-900/60 overflow-hidden flex flex-col h-[650px] shadow-sm sticky top-24">
@@ -450,7 +442,6 @@ export default function WatchRoomPage() {
           </div>
         )}
 
-        {/* Mobile Floating Button for Chat */}
         <div className="lg:hidden fixed bottom-6 right-6 z-50">
            <button 
              onClick={() => { setActiveDrawerTab('chat'); setIsDrawerOpen(true); }}

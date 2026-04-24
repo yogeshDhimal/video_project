@@ -11,7 +11,7 @@ export default function AdminSeriesIndex() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
-  const [managingSeries, setManagingSeries] = useState(null); // Series object for modal
+  const [managingSeries, setManagingSeries] = useState(null);
 
   const loadData = async () => {
     try {
@@ -171,7 +171,7 @@ export default function AdminSeriesIndex() {
           series={managingSeries}
           onClose={() => {
             setManagingSeries(null);
-            loadData(); // Refresh data in case something changed
+            loadData();
           }}
         />
       )}

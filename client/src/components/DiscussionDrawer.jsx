@@ -5,7 +5,7 @@ export default function DiscussionDrawer({
   isOpen, 
   onClose, 
   title = "Discussion",
-  tabs = [], // [{ id: 'comments', label: 'Comments', content: <... /> }]
+  tabs = [],
   activeTab: externalActiveTab,
   onTabChange
 }) {

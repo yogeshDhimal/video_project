@@ -58,13 +58,11 @@ function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, onReport,
 
   return (
     <div id={`comment-${comment._id}`} className={`relative group/thread ${isReply ? 'mt-3' : 'mb-10'}`}>
-      {/* Structural Thread Line - Only for Level 2 (depth 1) and Level 3 (depth 2) */}
       {(depth >= 1 && depth <= 2) && (
         <div className="absolute -left-3 sm:-left-6 top-1 bottom-0 w-[2.5px] bg-slate-200 dark:bg-white/10 rounded-full z-0 pointer-events-none" />
       )}
 
       <div className="group/comment relative z-10 flex gap-3 sm:gap-4">
-        {/* User Avatar */}
         <div className="flex-shrink-0 mt-1">
           <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-slate-200 border border-slate-300 dark:border-white/10 shrink-0 shadow-sm relative z-20">
              <img src={avatarUrl} alt={comment.user?.username} className="w-full h-full object-cover" />
@@ -138,7 +136,6 @@ function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, onReport,
             </form>
           )}
 
-          {/* Flat List of Replies Toggle */}
           {!isReply && replies.length > 0 && (
             <button 
               onClick={() => setShowReplies(!showReplies)}
@@ -151,7 +148,6 @@ function CommentItem({ comment, user, onVote, onSubmitReply, onDelete, onReport,
         </div>
       </div>
 
-      {/* RECURSIVE REPLIES - Moved outside parent content to ensure true flattening at depth >= 2 */}
       {((!isReply && showReplies) || isReply) && replies.length > 0 && (
         <div className={`mt-4 space-y-4 ${depth <= 1 ? 'ml-6 sm:ml-12' : 'ml-0'}`}>
           {replies.map((r) => (
@@ -192,7 +188,7 @@ export default function Watch() {
   const [myRating, setMyRating] = useState(0);
   const socketRef = useRef(null);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [reportRequest, setReportRequest] = useState(null); // { id, type: 'comment' | 'chat' }
+  const [reportRequest, setReportRequest] = useState(null);
   const [isReporting, setIsReporting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
@@ -211,7 +207,7 @@ export default function Watch() {
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-      }, 500); // Wait for rendering out the recursive comments
+      }, 500);
     }
   }, [comments, highlightedCommentId]);
 
@@ -232,7 +228,6 @@ export default function Watch() {
             const { data: voteData } = await api.get(`/episodes/${episodeId}/likes/me`);
             v = voteData.userVote;
           } catch (e) {
-            // ignore if not found or unauthorized
           }
         }
 
@@ -266,7 +261,6 @@ export default function Watch() {
     };
   }, [episodeId]);
 
-  // Fixed: use user?._id in dep array instead of user object to prevent socket churn (issue 3.2)
   useEffect(() => {
     if (!user?._id || !episodeId) return undefined;
     const socket = io({
@@ -316,7 +310,6 @@ export default function Watch() {
 
   const { episode, series, season } = data;
 
-  // Fixed: optimistic comment append instead of full refetch (issue 3.3)
   const submitComment = async (parentId = null, body = null) => {
     const text = body || comment;
     if (!text.trim()) return;
@@ -368,7 +361,6 @@ export default function Watch() {
   const handleVote = async (value) => {
     if (!user) return;
 
-    // Optimistic UI update
     const prevVote = userVote;
     const prevLikes = likes;
     const prevDislikes = dislikes;
@@ -378,12 +370,10 @@ export default function Watch() {
     let newVote = value;
 
     if (prevVote === value) {
-      // Toggle off
       newVote = 0;
       if (value === 1) newLikes = Math.max(0, newLikes - 1);
       if (value === -1) newDislikes = Math.max(0, newDislikes - 1);
     } else {
-      // Switch vote or new vote
       if (prevVote === 1) newLikes = Math.max(0, newLikes - 1);
       if (prevVote === -1) newDislikes = Math.max(0, newDislikes - 1);
       if (value === 1) newLikes += 1;
@@ -397,7 +387,6 @@ export default function Watch() {
     try {
       await api.post(`/episodes/${episodeId}/likes`, { value });
     } catch {
-      // Revert if API fails
       setLikes(prevLikes);
       setDislikes(prevDislikes);
       setUserVote(prevVote);
@@ -459,7 +448,6 @@ export default function Watch() {
     
     const commentId = itemToDelete;
 
-    // Recursive optimistic filter
     const filterRecurse = (list) => {
       return list.filter(c => c._id !== commentId).map(c => {
         if (c.replies) {
@@ -521,7 +509,6 @@ export default function Watch() {
 
   return (
     <div className="max-w-[1500px] mx-auto px-4 py-3 sm:py-8 h-[calc(100dvh-64px)] sm:h-auto overflow-hidden sm:overflow-visible flex flex-col">
-      {/* Breadcrumbs */}
       <div className="mb-4 text-sm text-slate-600 dark:text-slate-400">
         <Link to="/" className="hover:text-teal-700 dark:hover:text-white">Home</Link>
         <span className="mx-2">/</span>
@@ -531,7 +518,6 @@ export default function Watch() {
       </div>
 
       <div className="flex flex-col lg:grid lg:grid-cols-[1fr_380px] gap-8">
-        {/* Main Column */}
         <div className="min-w-0">
           <h1 className="font-display text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-6">
             {episode.title}
@@ -550,7 +536,6 @@ export default function Watch() {
       />
 
           <div className="mt-6 border-b border-slate-200 dark:border-white/10 pb-6 mb-2">
-            {/* Optimized Action Bar - No horizontal scroll on mobile */}
             <div className="flex flex-wrap items-center gap-3 sm:gap-6">
               {user && (
                 <div className="w-full sm:w-auto shrink-0">
@@ -611,7 +596,6 @@ export default function Watch() {
             </div>
           </div>
 
-          {/* Persistent Live Chat (Mobile Only) - Dynamic height to fill screen */}
           <div className="flex-1 min-h-0 lg:hidden mt-4 bg-white dark:bg-charcoal-900/60 rounded-3xl border border-slate-200 dark:border-white/5 overflow-hidden flex flex-col shadow-sm mb-4">
             <div className="px-5 py-3 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50 dark:bg-white/5">
                <div className="flex items-center gap-2">
@@ -659,7 +643,6 @@ export default function Watch() {
 
         </div>
 
-        {/* Sidebar Column (Hides when comments hub is open for wide mode) */}
         {!isDrawerOpen && (
           <div className="hidden lg:flex flex-col gap-4 animate-fadeIn">
             <div className="rounded-2xl border border-slate-200 bg-white dark:bg-charcoal-900/60 dark:border-white/10 overflow-hidden flex flex-col h-[600px] shadow-sm sticky top-24">

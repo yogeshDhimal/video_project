@@ -21,7 +21,6 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  // Fixed: wrap in useCallback to prevent stale closures & unnecessary re-renders (issue 3.1)
   const login = useCallback(async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
     setAuthToken(data.token);

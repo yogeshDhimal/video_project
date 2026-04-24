@@ -41,7 +41,7 @@ export default function VideoPlayer({
   const controlsTimerRef = useRef(null);
   const sessionId = useMemo(() => Math.random().toString(36).slice(2), [episode?._id]);
   const lastSent = useRef(0);
-  // Retry logic: auto-retry on network error (e.g. ECONNRESET on first load)
+
   const retryCount = useRef(0);
   const retryTimer = useRef(null);
 
@@ -59,7 +59,7 @@ export default function VideoPlayer({
     return streamUrl(episode._id, qualityKey, token, isSeries);
   }, [episode, qualityKey, qualities.length, token, isSeries]);
 
-  // Reset retry counter whenever the stream source changes
+
   useEffect(() => {
     retryCount.current = 0;
     clearTimeout(retryTimer.current);
@@ -229,7 +229,7 @@ export default function VideoPlayer({
           if (autoNextEnabled && onEnded) onEnded();
         }}
         onError={() => {
-          // Auto-retry up to 3 times when the stream fails (e.g. ECONNRESET on first load)
+
           if (retryCount.current < 3) {
             retryCount.current += 1;
             clearTimeout(retryTimer.current);

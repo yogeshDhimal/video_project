@@ -24,7 +24,6 @@ export default function SeriesDetail() {
       try {
         const { data: d } = await api.get(`/series/${id}`);
         if (!cancelled) setData(d);
-        // Fetch TF-IDF similar series in parallel
         api.get(`/series/${id}/similar`)
           .then(r => { if (!cancelled) setSimilarSeries(r.data.items || []); })
           .catch(() => {});
@@ -42,7 +41,6 @@ export default function SeriesDetail() {
 
   useEffect(() => {
     if (!user || !id) return;
-    // Fixed: use the new /check endpoint instead of fetching all bookmarks (issue 3.4)
     api
       .get(`/bookmarks/${id}/check`)
       .then((r) => {
@@ -251,7 +249,6 @@ export default function SeriesDetail() {
         </div>
       )}
 
-      {/* ── TF-IDF Cosine Similarity: Similar Series Section ── */}
       {similarSeries.length > 0 && (
         <div className="mt-14 pt-10 border-t border-slate-200 dark:border-white/10">
           <div className="mb-6">

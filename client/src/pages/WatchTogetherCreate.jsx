@@ -13,7 +13,7 @@ export default function WatchTogetherCreate() {
   const [showSeriesList, setShowSeriesList] = useState(false);
   const [seasons, setSeasons] = useState([]); 
   const [expandedSeason, setExpandedSeason] = useState(null);
-  const [episodes, setEpisodes] = useState([]); // { _id, title, seriesTitle }
+  const [episodes, setEpisodes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [visibility, setVisibility] = useState('public');
   const [pin, setPin] = useState(['', '', '', '']);
@@ -116,7 +116,6 @@ export default function WatchTogetherCreate() {
           />
         </div>
 
-        {/* Room Privacy */}
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Room Privacy</label>
           <div className="flex gap-3">
@@ -151,7 +150,6 @@ export default function WatchTogetherCreate() {
               : 'Only people with the 4-digit PIN can enter.'}
           </p>
 
-          {/* PIN Input */}
           {visibility === 'private' && (
             <div className="mt-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-500/20 animate-fadeIn">
               <label className="block text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-3">Set Room PIN</label>
@@ -206,7 +204,6 @@ export default function WatchTogetherCreate() {
            </div>
            
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 relative items-start">
-             {/* Left side: Series Results */}
              {showSeriesList && seriesResults.length > 0 && (
                <div className="border border-slate-200 dark:border-white/10 rounded-xl bg-white dark:bg-charcoal-950 p-2 shadow-inner transition-all">
                  <h4 className="text-xs font-bold text-slate-400 uppercase px-2 mb-2 pt-2">Search Results</h4>
@@ -220,7 +217,6 @@ export default function WatchTogetherCreate() {
                </div>
              )}
 
-             {/* Right side: Seasons & Episodes */}
              {selectedSeries && (
                <div className="border border-slate-200 dark:border-white/10 rounded-xl bg-white dark:bg-charcoal-950 p-2 shadow-inner flex flex-col h-64 md:col-start-2 animate-fadeIn animate-duration-300">
                  <h4 className="text-xs font-bold text-slate-400 uppercase px-2 mb-2 pt-2 truncate">{selectedSeries.title}</h4>
